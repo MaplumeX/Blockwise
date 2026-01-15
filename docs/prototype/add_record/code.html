@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Add Time Record Details</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#0f1218",
+                        "surface-dark": "#181f2b",
+                        "surface-card": "#232d3d",
+                        "surface-light": "#ffffff",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "3xl": "1.5rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .animate-slide-up {
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }.time-roller {
+            scroll-snap-type: y mandatory;
+            overscroll-behavior-y: contain;
+        }
+        .time-roller > div {
+            scroll-snap-align: center;
+        }
+        .mask-linear-gradient {
+            mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 40%, black 60%, transparent);
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-black font-display antialiased overflow-hidden h-[100dvh] w-screen relative select-none">
+<div aria-hidden="true" class="absolute inset-0 bg-background-dark flex flex-col pointer-events-none">
+<header class="h-14 px-4 flex justify-between items-center border-b border-gray-800/50 opacity-40">
+<div class="h-5 w-5 bg-gray-700 rounded-full"></div>
+<div class="h-4 w-32 bg-gray-700 rounded"></div>
+<div class="h-5 w-5 bg-gray-700 rounded-full"></div>
+</header>
+<div class="p-4 space-y-4 opacity-40">
+<div class="h-20 w-full bg-surface-card rounded-xl border border-gray-800"></div>
+<div class="h-20 w-full bg-surface-card rounded-xl border border-gray-800"></div>
+<div class="h-20 w-full bg-surface-card rounded-xl border border-gray-800"></div>
+<div class="h-20 w-full bg-surface-card rounded-xl border border-gray-800"></div>
+<div class="h-20 w-full bg-surface-card rounded-xl border border-gray-800"></div>
+</div>
+</div>
+<div class="absolute inset-0 bg-black/60 backdrop-blur-[2px] z-10 transition-opacity"></div>
+<main class="absolute bottom-0 left-0 right-0 h-[85vh] bg-surface-dark z-20 rounded-t-3xl shadow-2xl flex flex-col border-t border-white/5 animate-slide-up">
+<div class="flex items-center justify-between px-5 py-4 border-b border-gray-800/50">
+<button class="text-primary hover:text-blue-400 transition-colors text-[17px] font-medium">
+                Cancel
+            </button>
+<h2 class="text-white text-[17px] font-semibold tracking-tight">Add Record</h2>
+<button class="text-primary text-[17px] font-semibold hover:text-blue-400 transition-colors">
+                Save
+            </button>
+</div>
+<div class="flex-1 overflow-y-auto overflow-x-hidden p-5 space-y-6 no-scrollbar pb-10">
+<section class="space-y-1">
+<label class="sr-only" for="activity">Activity Name</label>
+<div class="relative">
+<input autocomplete="off" class="w-full bg-transparent text-white text-2xl font-bold placeholder-gray-600 border-none focus:ring-0 p-0 leading-tight" id="activity" placeholder="What did you do?" type="text" value="Deep Work Project X"/>
+</div>
+<p class="text-sm text-gray-500 font-medium">Define your main task clearly.</p>
+</section>
+<section class="bg-surface-card rounded-xl border border-gray-700 overflow-hidden">
+<div class="flex items-center justify-between border-b border-gray-700/50 bg-black/20 px-4 py-2">
+<span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">Start Time</span>
+<span class="text-xs uppercase tracking-wider text-gray-400 font-semibold">End Time</span>
+</div>
+<div class="flex divide-x divide-gray-700/50 h-40 relative">
+<div class="absolute top-1/2 left-0 right-0 h-9 -translate-y-1/2 bg-gray-700/30 pointer-events-none z-0 border-y border-gray-600/30"></div>
+<div class="flex-1 flex justify-center relative mask-linear-gradient z-10">
+<div class="h-full w-12 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)]">
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">07</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">08</div>
+<div class="h-9 flex items-center justify-center text-white font-medium text-xl">09</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">10</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">11</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">12</div>
+</div>
+<span class="flex items-center justify-center h-full pb-1 text-white font-medium">:</span>
+<div class="h-full w-12 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)]">
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">25</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">26</div>
+<div class="h-9 flex items-center justify-center text-white font-medium text-xl">27</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">28</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">29</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">30</div>
+</div>
+<div class="h-full w-10 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)] ml-1">
+<div class="h-9 flex items-center justify-center text-white font-medium text-sm">AM</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-sm">PM</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-sm opacity-0">.</div> 
+</div>
+</div>
+<div class="flex-1 flex justify-center relative mask-linear-gradient z-10">
+<div class="h-full w-12 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)]">
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">09</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">10</div>
+<div class="h-9 flex items-center justify-center text-white font-medium text-xl">11</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">12</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">01</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">02</div>
+</div>
+<span class="flex items-center justify-center h-full pb-1 text-white font-medium">:</span>
+<div class="h-full w-12 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)]">
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">58</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">59</div>
+<div class="h-9 flex items-center justify-center text-white font-medium text-xl">00</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">01</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">02</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-lg">03</div>
+</div>
+<div class="h-full w-10 overflow-y-auto no-scrollbar time-roller text-center py-[calc(50%-18px)] ml-1">
+<div class="h-9 flex items-center justify-center text-white font-medium text-sm">AM</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-sm">PM</div>
+<div class="h-9 flex items-center justify-center text-gray-500 text-sm opacity-0">.</div> 
+</div>
+</div>
+</div>
+<div class="bg-black/20 border-t border-gray-700/50 py-2 px-4 flex justify-between items-center">
+<span class="text-xs text-gray-500">Duration</span>
+<span class="text-sm font-bold text-white tracking-wide">1h 33m</span>
+</div>
+</section>
+<section>
+<h3 class="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-3 px-1">Category</h3>
+<div class="grid grid-cols-2 gap-3">
+<label class="cursor-pointer group relative">
+<input checked="" class="peer sr-only" name="category" type="radio"/>
+<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-700 bg-surface-card transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-[0_0_0_1px_rgba(19,91,236,1)]">
+<div class="flex items-center justify-center size-10 rounded-lg bg-blue-900/30 text-blue-400">
+<span class="material-symbols-outlined text-[24px]">work</span>
+</div>
+<span class="text-sm font-semibold text-gray-100 group-hover:text-primary transition-colors">Work</span>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 text-primary transition-opacity">
+<span class="material-symbols-outlined text-[20px] font-bold">check_circle</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer group relative">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-700 bg-surface-card transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-[0_0_0_1px_rgba(19,91,236,1)]">
+<div class="flex items-center justify-center size-10 rounded-lg bg-purple-900/30 text-purple-400">
+<span class="material-symbols-outlined text-[24px]">school</span>
+</div>
+<span class="text-sm font-semibold text-gray-100 group-hover:text-primary transition-colors">Study</span>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 text-primary transition-opacity">
+<span class="material-symbols-outlined text-[20px] font-bold">check_circle</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer group relative">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-700 bg-surface-card transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-[0_0_0_1px_rgba(19,91,236,1)]">
+<div class="flex items-center justify-center size-10 rounded-lg bg-green-900/30 text-green-400">
+<span class="material-symbols-outlined text-[24px]">eco</span>
+</div>
+<span class="text-sm font-semibold text-gray-100 group-hover:text-primary transition-colors">Life</span>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 text-primary transition-opacity">
+<span class="material-symbols-outlined text-[20px] font-bold">check_circle</span>
+</div>
+</div>
+</label>
+<label class="cursor-pointer group relative">
+<input class="peer sr-only" name="category" type="radio"/>
+<div class="flex items-center gap-3 p-3 rounded-xl border border-gray-700 bg-surface-card transition-all peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:shadow-[0_0_0_1px_rgba(19,91,236,1)]">
+<div class="flex items-center justify-center size-10 rounded-lg bg-orange-900/30 text-orange-400">
+<span class="material-symbols-outlined text-[24px]">chair</span>
+</div>
+<span class="text-sm font-semibold text-gray-100 group-hover:text-primary transition-colors">Rest</span>
+<div class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 peer-checked:opacity-100 text-primary transition-opacity">
+<span class="material-symbols-outlined text-[20px] font-bold">check_circle</span>
+</div>
+</div>
+</label>
+</div>
+</section>
+<section class="flex-1 flex flex-col gap-2 min-h-[160px]">
+<h3 class="text-xs uppercase tracking-wider text-gray-500 font-semibold px-1">Reflection &amp; Notes</h3>
+<div class="flex-1 bg-surface-card rounded-xl border border-gray-700 p-4 focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all relative">
+<textarea class="w-full h-full bg-transparent border-none p-0 text-gray-200 placeholder-gray-600 text-base leading-relaxed resize-none focus:ring-0 mb-8" placeholder="Reflect on your efficiency. Did you encounter any distractions? How was your focus level?"></textarea>
+<div class="absolute bottom-3 left-3 right-3 flex gap-2 overflow-x-auto no-scrollbar">
+<button class="shrink-0 text-xs font-medium text-gray-400 hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg bg-background-dark border border-gray-700 transition-colors">#focused</button>
+<button class="shrink-0 text-xs font-medium text-gray-400 hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg bg-background-dark border border-gray-700 transition-colors">#distracted</button>
+<button class="shrink-0 text-xs font-medium text-gray-400 hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg bg-background-dark border border-gray-700 transition-colors">#planning</button>
+<button class="shrink-0 text-xs font-medium text-gray-400 hover:text-primary hover:bg-primary/10 px-2.5 py-1.5 rounded-lg bg-background-dark border border-gray-700 transition-colors">#meeting</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+
+</body></html>
