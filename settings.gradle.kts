@@ -11,6 +11,7 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -20,4 +21,18 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Blockwise"
+
+// App module
 include(":app")
+
+// Core modules
+include(":core:common")
+include(":core:designsystem")
+include(":core:data")
+include(":core:domain")
+
+// Feature modules
+include(":feature:timeentry")
+include(":feature:statistics")
+include(":feature:goal")
+include(":feature:settings")

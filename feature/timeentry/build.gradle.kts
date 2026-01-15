@@ -1,24 +1,20 @@
 plugins {
-    alias(libs.plugins.android.application)
+    alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
 
 android {
-    namespace = "com.maplume.blockwise"
+    namespace = "com.maplume.blockwise.feature.timeentry"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.maplume.blockwise"
         minSdk = 26
-        targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -46,17 +42,11 @@ android {
 }
 
 dependencies {
-    // Project modules - Core
+    // Project modules
     implementation(project(":core:common"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
-
-    // Project modules - Feature
-    implementation(project(":feature:timeentry"))
-    implementation(project(":feature:statistics"))
-    implementation(project(":feature:goal"))
-    implementation(project(":feature:settings"))
 
     // AndroidX Core
     implementation(libs.androidx.core.ktx)
@@ -64,7 +54,6 @@ dependencies {
     // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.bundles.compose.ui)
-    implementation(libs.androidx.activity.compose)
     debugImplementation(libs.bundles.compose.debug)
 
     // Lifecycle
@@ -81,16 +70,8 @@ dependencies {
     // Coroutines
     implementation(libs.bundles.coroutines)
 
-    // Room (for DI module)
-    implementation(libs.bundles.room)
-    ksp(libs.room.compiler)
-
-    // Kotlinx
+    // Kotlinx DateTime
     implementation(libs.kotlinx.datetime)
-    implementation(libs.kotlinx.serialization.json)
-
-    // Timber
-    implementation(libs.timber)
 
     // Testing
     testImplementation(libs.junit)
