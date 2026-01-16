@@ -18,4 +18,6 @@ data class ActivityType(
      * Check if this activity type is a root (top-level) type.
      */
     val isRoot: Boolean get() = parentId == null
+
+    val isRootLevel: Boolean get() = isRoot
 }

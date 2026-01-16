@@ -9,45 +9,55 @@ import androidx.room.Update
 import com.maplume.blockwise.core.data.entity.ActivityTypeEntity
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Data Access Object for activity types.
- */
 @Dao
 interface ActivityTypeDao {
 
-    @Query("SELECT * FROM activity_types WHERE is_archived = 0 ORDER BY display_order, name")
-    fun getAllActiveActivityTypes(): Flow<List<ActivityTypeEntity>>
-
-    @Query("SELECT * FROM activity_types ORDER BY display_order, name")
-    fun getAllActivityTypes(): Flow<List<ActivityTypeEntity>>
-
-    @Query("SELECT * FROM activity_types WHERE id = :id")
-    suspend fun getActivityTypeById(id: Long): ActivityTypeEntity?
-
-    @Query("SELECT * FROM activity_types WHERE parent_id = :parentId AND is_archived = 0 ORDER BY display_order")
-    fun getChildActivityTypes(parentId: Long): Flow<List<ActivityTypeEntity>>
-
-    @Query("SELECT * FROM activity_types WHERE parent_id IS NULL AND is_archived = 0 ORDER BY display_order")
-    fun getRootActivityTypes(): Flow<List<ActivityTypeEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(activityType: ActivityTypeEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertActivityType(activityType: ActivityTypeEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertActivityTypes(activityTypes: List<ActivityTypeEntity>)
+    suspend fun insertAll(activityTypes: List<ActivityTypeEntity>): List<Long>
 
     @Update
-    suspend fun updateActivityType(activityType: ActivityTypeEntity)
+    suspend fun update(activityType: ActivityTypeEntity)
 
     @Delete
-    suspend fun deleteActivityType(activityType: ActivityTypeEntity)
+    suspend fun delete(activityType: ActivityTypeEntity)
 
-    @Query("UPDATE activity_types SET is_archived = 1 WHERE id = :id")
-    suspend fun archiveActivityType(id: Long)
+    @Query("DELETE FROM activity_types WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
-    @Query("UPDATE activity_types SET is_archived = 0 WHERE id = :id")
-    suspend fun unarchiveActivityType(id: Long)
+    @Query("UPDATE activity_types SET is_archived = 1, updated_at = :updatedAt WHERE id = :id")
+    suspend fun archive(id: Long, updatedAt: Long)
+
+    @Query("UPDATE activity_types SET is_archived = 0, updated_at = :updatedAt WHERE id = :id")
+    suspend fun unarchive(id: Long, updatedAt: Long)
+
+    @Query("SELECT * FROM activity_types WHERE is_archived = 0 ORDER BY display_order ASC")
+    fun getAllActive(): Flow<List<ActivityTypeEntity>>
+
+    @Query("SELECT * FROM activity_types ORDER BY display_order ASC")
+    fun getAll(): Flow<List<ActivityTypeEntity>>
+
+    @Query("SELECT * FROM activity_types WHERE id = :id")
+    suspend fun getById(id: Long): ActivityTypeEntity?
+
+    @Query("SELECT * FROM activity_types WHERE id = :id")
+    fun getByIdFlow(id: Long): Flow<ActivityTypeEntity?>
+
+    @Query("SELECT * FROM activity_types WHERE parent_id IS NULL AND is_archived = 0 ORDER BY display_order ASC")
+    fun getRootLevel(): Flow<List<ActivityTypeEntity>>
+
+    @Query("SELECT * FROM activity_types WHERE parent_id = :parentId AND is_archived = 0 ORDER BY display_order ASC")
+    fun getChildren(parentId: Long): Flow<List<ActivityTypeEntity>>
+
+    @Query("SELECT * FROM activity_types WHERE name = :name AND is_archived = 0 LIMIT 1")
+    suspend fun getByName(name: String): ActivityTypeEntity?
+
+    @Query("UPDATE activity_types SET display_order = :order, updated_at = :updatedAt WHERE id = :id")
+    suspend fun updateDisplayOrder(id: Long, order: Int, updatedAt: Long)
 
     @Query("SELECT COUNT(*) FROM activity_types WHERE is_archived = 0")
-    suspend fun getActiveActivityTypeCount(): Int
+    suspend fun countActive(): Int
 }
+

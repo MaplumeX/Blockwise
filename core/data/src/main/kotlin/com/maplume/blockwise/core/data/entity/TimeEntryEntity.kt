@@ -3,8 +3,11 @@ package com.maplume.blockwise.core.data.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Embedded
 import androidx.room.Index
+import androidx.room.Junction
 import androidx.room.PrimaryKey
+import androidx.room.Relation
 import kotlinx.datetime.Instant
 
 /**
@@ -51,4 +54,26 @@ data class TimeEntryEntity(
 
     @ColumnInfo(name = "updated_at")
     val updatedAt: Instant
+)
+
+data class TimeEntryWithDetails(
+    @Embedded
+    val entry: TimeEntryEntity,
+
+    @Relation(
+        parentColumn = "activity_id",
+        entityColumn = "id"
+    )
+    val activity: ActivityTypeEntity,
+
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "id",
+        associateBy = Junction(
+            value = TimeEntryTagEntity::class,
+            parentColumn = "entry_id",
+            entityColumn = "tag_id"
+        )
+    )
+    val tags: List<TagEntity>
 )

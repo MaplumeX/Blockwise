@@ -1,63 +1,34 @@
 package com.maplume.blockwise.core.domain.repository
 
 import com.maplume.blockwise.core.domain.model.TimeEntry
+import com.maplume.blockwise.core.domain.model.TimeEntryInput
 import kotlinx.coroutines.flow.Flow
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
 
-/**
- * Repository interface for time entry operations.
- * Implementations should handle data access and persistence.
- */
 interface TimeEntryRepository {
+    suspend fun create(input: TimeEntryInput): Long
 
-    /**
-     * Get all time entries as a Flow.
-     */
-    fun getAllTimeEntries(): Flow<List<TimeEntry>>
+    suspend fun update(id: Long, input: TimeEntryInput)
 
-    /**
-     * Get a time entry by its ID.
-     */
-    suspend fun getTimeEntryById(id: Long): TimeEntry?
+    suspend fun delete(id: Long)
 
-    /**
-     * Get time entries within a date range.
-     */
-    fun getTimeEntriesInRange(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>>
+    suspend fun getById(id: Long): TimeEntry?
 
-    /**
-     * Get time entries for a specific activity type.
-     */
-    fun getTimeEntriesByActivityId(activityId: Long): Flow<List<TimeEntry>>
+    fun getByIdFlow(id: Long): Flow<TimeEntry?>
 
-    /**
-     * Insert a new time entry.
-     * @return The ID of the inserted entry
-     */
-    suspend fun insertTimeEntry(entry: TimeEntry): Long
+    fun getByTimeRange(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>>
 
-    /**
-     * Update an existing time entry.
-     */
-    suspend fun updateTimeEntry(entry: TimeEntry)
+    fun getByDay(date: LocalDate): Flow<List<TimeEntry>>
 
-    /**
-     * Delete a time entry.
-     */
-    suspend fun deleteTimeEntry(entry: TimeEntry)
+    fun getRecent(limit: Int, offset: Int): Flow<List<TimeEntry>>
 
-    /**
-     * Delete a time entry by ID.
-     */
-    suspend fun deleteTimeEntryById(id: Long)
+    suspend fun hasOverlapping(startTime: Instant, endTime: Instant, excludeId: Long = 0): Boolean
 
-    /**
-     * Get the total count of time entries.
-     */
-    suspend fun getTimeEntryCount(): Int
+    suspend fun getTotalDuration(startTime: Instant, endTime: Instant): Int
 
-    /**
-     * Get total duration in minutes within a date range.
-     */
-    suspend fun getTotalDurationInRange(startTime: Instant, endTime: Instant): Int
+    suspend fun getEntryCount(startTime: Instant, endTime: Instant): Int
+
+    suspend fun getLatest(): TimeEntry?
 }
+

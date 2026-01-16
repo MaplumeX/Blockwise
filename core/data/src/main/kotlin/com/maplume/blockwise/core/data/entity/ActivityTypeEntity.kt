@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.datetime.Instant
 
 /**
  * Database entity for activity types.
@@ -21,11 +22,13 @@ import androidx.room.PrimaryKey
         )
     ],
     indices = [
-        Index(value = ["parent_id"])
+        Index(value = ["parent_id"]),
+        Index(value = ["display_order"])
     ]
 )
 data class ActivityTypeEntity(
     @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "id")
     val id: Long = 0,
 
     @ColumnInfo(name = "name")
@@ -43,6 +46,12 @@ data class ActivityTypeEntity(
     @ColumnInfo(name = "display_order")
     val displayOrder: Int = 0,
 
-    @ColumnInfo(name = "is_archived")
-    val isArchived: Boolean = false
+    @ColumnInfo(name = "is_archived", defaultValue = "0")
+    val isArchived: Boolean = false,
+
+    @ColumnInfo(name = "created_at")
+    val createdAt: Instant,
+
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Instant
 )

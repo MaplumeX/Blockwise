@@ -5,40 +5,58 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import com.maplume.blockwise.core.data.entity.GoalEntity
+import com.maplume.blockwise.core.data.entity.GoalWithTag
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Data Access Object for goals.
- */
 @Dao
 interface GoalDao {
 
-    @Query("SELECT * FROM goals WHERE is_active = 1 ORDER BY id")
-    fun getAllActiveGoals(): Flow<List<GoalEntity>>
-
-    @Query("SELECT * FROM goals ORDER BY id")
-    fun getAllGoals(): Flow<List<GoalEntity>>
-
-    @Query("SELECT * FROM goals WHERE id = :id")
-    suspend fun getGoalById(id: Long): GoalEntity?
-
-    @Query("SELECT * FROM goals WHERE tag_id = :tagId AND is_active = 1")
-    fun getGoalsForTag(tagId: Long): Flow<List<GoalEntity>>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertGoal(goal: GoalEntity): Long
+    suspend fun insert(goal: GoalEntity): Long
 
     @Update
-    suspend fun updateGoal(goal: GoalEntity)
+    suspend fun update(goal: GoalEntity)
 
     @Delete
-    suspend fun deleteGoal(goal: GoalEntity)
+    suspend fun delete(goal: GoalEntity)
 
-    @Query("UPDATE goals SET is_active = 0 WHERE id = :id")
-    suspend fun deactivateGoal(id: Long)
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
-    @Query("UPDATE goals SET is_active = 1 WHERE id = :id")
-    suspend fun activateGoal(id: Long)
+    @Query("UPDATE goals SET is_active = :isActive, updated_at = :updatedAt WHERE id = :id")
+    suspend fun setActive(id: Long, isActive: Boolean, updatedAt: Long)
+
+    @Query("SELECT * FROM goals WHERE id = :id")
+    suspend fun getById(id: Long): GoalEntity?
+
+    @Transaction
+    @Query("SELECT * FROM goals WHERE id = :id")
+    suspend fun getByIdWithTag(id: Long): GoalWithTag?
+
+    @Transaction
+    @Query("SELECT * FROM goals WHERE id = :id")
+    fun getByIdWithTagFlow(id: Long): Flow<GoalWithTag?>
+
+    @Transaction
+    @Query("SELECT * FROM goals WHERE is_active = 1 ORDER BY id DESC")
+    fun getActiveGoals(): Flow<List<GoalWithTag>>
+
+    @Transaction
+    @Query("SELECT * FROM goals ORDER BY is_active DESC, id DESC")
+    fun getAllGoals(): Flow<List<GoalWithTag>>
+
+    @Transaction
+    @Query("SELECT * FROM goals WHERE tag_id = :tagId")
+    fun getByTagId(tagId: Long): Flow<List<GoalWithTag>>
+
+    @Transaction
+    @Query("SELECT * FROM goals WHERE tag_id = :tagId AND is_active = 1 LIMIT 1")
+    suspend fun getActiveByTagIdWithTag(tagId: Long): GoalWithTag?
+
+    @Query("SELECT COUNT(*) FROM goals WHERE is_active = 1")
+    suspend fun countActive(): Int
 }
+

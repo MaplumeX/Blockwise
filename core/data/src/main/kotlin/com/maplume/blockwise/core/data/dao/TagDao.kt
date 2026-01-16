@@ -7,52 +7,54 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.maplume.blockwise.core.data.entity.TagEntity
-import com.maplume.blockwise.core.data.entity.TimeEntryTagCrossRef
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Data Access Object for tags.
- */
 @Dao
 interface TagDao {
 
-    @Query("SELECT * FROM tags WHERE is_archived = 0 ORDER BY name")
-    fun getAllActiveTags(): Flow<List<TagEntity>>
-
-    @Query("SELECT * FROM tags ORDER BY name")
-    fun getAllTags(): Flow<List<TagEntity>>
-
-    @Query("SELECT * FROM tags WHERE id = :id")
-    suspend fun getTagById(id: Long): TagEntity?
-
-    @Query("""
-        SELECT t.* FROM tags t
-        INNER JOIN time_entry_tags tet ON t.id = tet.tag_id
-        WHERE tet.entry_id = :entryId
-    """)
-    fun getTagsForTimeEntry(entryId: Long): Flow<List<TagEntity>>
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(tag: TagEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTag(tag: TagEntity): Long
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTags(tags: List<TagEntity>)
+    suspend fun insertAll(tags: List<TagEntity>): List<Long>
 
     @Update
-    suspend fun updateTag(tag: TagEntity)
+    suspend fun update(tag: TagEntity)
 
     @Delete
-    suspend fun deleteTag(tag: TagEntity)
+    suspend fun delete(tag: TagEntity)
 
-    @Query("UPDATE tags SET is_archived = 1 WHERE id = :id")
-    suspend fun archiveTag(id: Long)
+    @Query("DELETE FROM tags WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertTimeEntryTagCrossRef(crossRef: TimeEntryTagCrossRef)
+    @Query("UPDATE tags SET is_archived = 1, updated_at = :updatedAt WHERE id = :id")
+    suspend fun archive(id: Long, updatedAt: Long)
 
-    @Delete
-    suspend fun deleteTimeEntryTagCrossRef(crossRef: TimeEntryTagCrossRef)
+    @Query("UPDATE tags SET is_archived = 0, updated_at = :updatedAt WHERE id = :id")
+    suspend fun unarchive(id: Long, updatedAt: Long)
 
-    @Query("DELETE FROM time_entry_tags WHERE entry_id = :entryId")
-    suspend fun deleteAllTagsForTimeEntry(entryId: Long)
+    @Query("SELECT * FROM tags WHERE is_archived = 0 ORDER BY name ASC")
+    fun getAllActive(): Flow<List<TagEntity>>
+
+    @Query("SELECT * FROM tags ORDER BY name ASC")
+    fun getAll(): Flow<List<TagEntity>>
+
+    @Query("SELECT * FROM tags WHERE id = :id")
+    suspend fun getById(id: Long): TagEntity?
+
+    @Query("SELECT * FROM tags WHERE id = :id")
+    fun getByIdFlow(id: Long): Flow<TagEntity?>
+
+    @Query("SELECT * FROM tags WHERE id IN (:ids)")
+    suspend fun getByIds(ids: List<Long>): List<TagEntity>
+
+    @Query("SELECT * FROM tags WHERE name = :name LIMIT 1")
+    suspend fun getByName(name: String): TagEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM tags WHERE name = :name AND id != :excludeId)")
+    suspend fun isNameExists(name: String, excludeId: Long = 0): Boolean
+
+    @Query("SELECT COUNT(*) FROM tags WHERE is_archived = 0")
+    suspend fun countActive(): Int
 }
+

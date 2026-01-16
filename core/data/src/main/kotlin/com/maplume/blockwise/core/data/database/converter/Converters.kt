@@ -7,7 +7,7 @@ import kotlinx.datetime.LocalDate
 /**
  * Room type converters for kotlinx-datetime types.
  */
-class DateTimeConverters {
+class Converters {
 
     @TypeConverter
     fun instantToLong(instant: Instant?): Long? {

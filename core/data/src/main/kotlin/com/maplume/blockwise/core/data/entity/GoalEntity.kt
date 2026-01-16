@@ -5,29 +5,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.maplume.blockwise.core.domain.model.GoalPeriod
+import com.maplume.blockwise.core.domain.model.GoalType
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-
-/**
- * Goal type enumeration.
- */
-enum class GoalType {
-    /** Minimum time goal - aim to spend at least this much time */
-    MIN,
-    /** Maximum time goal - aim to spend no more than this much time */
-    MAX,
-    /** Exact time goal - aim to spend exactly this much time */
-    EXACT
-}
-
-/**
- * Goal period enumeration.
- */
-enum class GoalPeriod {
-    DAILY,
-    WEEKLY,
-    MONTHLY,
-    CUSTOM
-}
 
 /**
  * Database entity for goals.
@@ -43,11 +24,13 @@ enum class GoalPeriod {
         )
     ],
     indices = [
-        Index(value = ["tag_id"])
+        Index(value = ["tag_id"]),
+        Index(value = ["is_active"])
     ]
 )
 data class GoalEntity(
     @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "id")
     val id: Long = 0,
 
     @ColumnInfo(name = "tag_id")
@@ -68,6 +51,12 @@ data class GoalEntity(
     @ColumnInfo(name = "end_date")
     val endDate: LocalDate? = null,
 
-    @ColumnInfo(name = "is_active")
-    val isActive: Boolean = true
+    @ColumnInfo(name = "is_active", defaultValue = "1")
+    val isActive: Boolean = true,
+
+    @ColumnInfo(name = "created_at")
+    val createdAt: Instant,
+
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Instant
 )
