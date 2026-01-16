@@ -49,6 +49,12 @@ dependencies {
     // Lifecycle
     implementation(libs.bundles.lifecycle)
 
+    // Kotlinx DateTime
+    api(libs.kotlinx.datetime)
+
+    // Navigation
+    api(libs.androidx.navigation.compose)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

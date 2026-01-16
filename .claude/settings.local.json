@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(tree:*)",
-      "Bash(dir /s /b \"E:\\\\Code\\\\Projects\\\\Blockwise\")"
+      "Bash(dir /s /b \"E:\\\\Code\\\\Projects\\\\Blockwise\")",
+      "Bash(./gradlew assembleDebug:*)"
     ]
   }
 }
