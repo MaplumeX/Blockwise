@@ -28,6 +28,10 @@ import androidx.navigation.navArgument
 import com.maplume.blockwise.core.designsystem.component.BlockwiseBottomNavigation
 import com.maplume.blockwise.core.designsystem.component.BlockwiseNavigationItem
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
+import com.maplume.blockwise.feature.statistics.presentation.StatisticsNavigation
+import com.maplume.blockwise.feature.statistics.presentation.StatisticsScreen
+import com.maplume.blockwise.feature.statistics.presentation.component.ActivityTypeDetailScreen
+import com.maplume.blockwise.feature.statistics.presentation.component.TagDetailScreen
 import com.maplume.blockwise.feature.timeentry.presentation.TimeEntryNavigation
 import com.maplume.blockwise.feature.timeentry.presentation.activitytype.ActivityTypeEditScreen
 import com.maplume.blockwise.feature.timeentry.presentation.activitytype.ActivityTypeListScreen
@@ -37,6 +41,7 @@ import com.maplume.blockwise.feature.timeentry.presentation.timeentry.TimeEntryE
 import com.maplume.blockwise.feature.timeentry.presentation.timeline.TimelineScreen
 import com.maplume.blockwise.feature.timeentry.presentation.timer.TimerScreen
 import dagger.hilt.android.AndroidEntryPoint
+import java.net.URLDecoder
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 
@@ -118,9 +123,68 @@ fun BlockwiseApp() {
                 )
             }
 
-            // Statistics (placeholder)
+            // Statistics
             composable(BlockwiseNavigationItem.STATISTICS.route) {
-                PlaceholderScreen("统计功能开发中...")
+                StatisticsScreen(
+                    onNavigateToActivityDetail = { activityId ->
+                        // Navigation handled via StatisticsNavigation routes
+                    },
+                    onNavigateToTagDetail = { tagId ->
+                        // Navigation handled via StatisticsNavigation routes
+                    }
+                )
+            }
+
+            // Statistics Activity Detail
+            composable(
+                route = StatisticsNavigation.ACTIVITY_DETAIL_ROUTE,
+                arguments = listOf(
+                    navArgument("activityId") { type = NavType.LongType },
+                    navArgument("activityName") { type = NavType.StringType },
+                    navArgument("activityColor") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val activityId = backStackEntry.arguments?.getLong("activityId") ?: 0L
+                val activityName = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("activityName") ?: "",
+                    "UTF-8"
+                )
+                val activityColor = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("activityColor") ?: "#135BEC",
+                    "UTF-8"
+                )
+                ActivityTypeDetailScreen(
+                    activityId = activityId,
+                    activityName = activityName,
+                    activityColor = activityColor,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Statistics Tag Detail
+            composable(
+                route = StatisticsNavigation.TAG_DETAIL_ROUTE,
+                arguments = listOf(
+                    navArgument("tagId") { type = NavType.LongType },
+                    navArgument("tagName") { type = NavType.StringType },
+                    navArgument("tagColor") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val tagId = backStackEntry.arguments?.getLong("tagId") ?: 0L
+                val tagName = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("tagName") ?: "",
+                    "UTF-8"
+                )
+                val tagColor = URLDecoder.decode(
+                    backStackEntry.arguments?.getString("tagColor") ?: "#135BEC",
+                    "UTF-8"
+                )
+                TagDetailScreen(
+                    tagId = tagId,
+                    tagName = tagName,
+                    tagColor = tagColor,
+                    onNavigateBack = { navController.popBackStack() }
+                )
             }
 
             // Goals (placeholder)
