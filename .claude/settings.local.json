@@ -4,7 +4,10 @@
       "Bash(tree:*)",
       "Bash(dir /s /b \"E:\\\\Code\\\\Projects\\\\Blockwise\")",
       "Bash(./gradlew assembleDebug:*)",
-      "Bash(./gradlew clean:*)"
+      "Bash(./gradlew clean:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)"
     ]
   }
 }
