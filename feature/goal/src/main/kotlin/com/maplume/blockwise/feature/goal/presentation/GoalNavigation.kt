@@ -7,6 +7,8 @@ object GoalNavigation {
     const val ROUTE = "goal"
     const val ADD_GOAL_ROUTE = "goal/add"
     const val EDIT_GOAL_ROUTE = "goal/edit/{goalId}"
+    const val DETAIL_GOAL_ROUTE = "goal/detail/{goalId}"
 
     fun editGoalRoute(goalId: Long) = "goal/edit/$goalId"
+    fun detailGoalRoute(goalId: Long) = "goal/detail/$goalId"
 }

@@ -59,4 +59,3 @@ interface GoalDao {
     @Query("SELECT COUNT(*) FROM goals WHERE is_active = 1")
     suspend fun countActive(): Int
 }
-

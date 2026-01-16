@@ -40,6 +40,10 @@ import com.maplume.blockwise.feature.timeentry.presentation.timeblock.TimeBlockS
 import com.maplume.blockwise.feature.timeentry.presentation.timeentry.TimeEntryEditScreen
 import com.maplume.blockwise.feature.timeentry.presentation.timeline.TimelineScreen
 import com.maplume.blockwise.feature.timeentry.presentation.timer.TimerScreen
+import com.maplume.blockwise.feature.goal.presentation.GoalNavigation
+import com.maplume.blockwise.feature.goal.presentation.detail.GoalDetailScreen
+import com.maplume.blockwise.feature.goal.presentation.edit.GoalEditScreen
+import com.maplume.blockwise.feature.goal.presentation.list.GoalListScreen
 import dagger.hilt.android.AndroidEntryPoint
 import java.net.URLDecoder
 import kotlinx.datetime.LocalDate
@@ -187,9 +191,49 @@ fun BlockwiseApp() {
                 )
             }
 
-            // Goals (placeholder)
+            // Goals
             composable(BlockwiseNavigationItem.GOALS.route) {
-                PlaceholderScreen("目标功能开发中...")
+                GoalListScreen(
+                    onNavigateToAdd = {
+                        navController.navigate(GoalNavigation.ADD_GOAL_ROUTE)
+                    },
+                    onNavigateToEdit = { goalId ->
+                        navController.navigate(GoalNavigation.editGoalRoute(goalId))
+                    },
+                    onNavigateToDetail = { goalId ->
+                        navController.navigate(GoalNavigation.detailGoalRoute(goalId))
+                    }
+                )
+            }
+
+            // Add Goal
+            composable(GoalNavigation.ADD_GOAL_ROUTE) {
+                GoalEditScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Edit Goal
+            composable(
+                route = GoalNavigation.EDIT_GOAL_ROUTE,
+                arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+            ) {
+                GoalEditScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Goal Detail
+            composable(
+                route = GoalNavigation.DETAIL_GOAL_ROUTE,
+                arguments = listOf(navArgument("goalId") { type = NavType.LongType })
+            ) {
+                GoalDetailScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = { goalId ->
+                        navController.navigate(GoalNavigation.editGoalRoute(goalId))
+                    }
+                )
             }
 
             // Settings
