@@ -3,7 +3,8 @@
     "allow": [
       "Bash(tree:*)",
       "Bash(dir /s /b \"E:\\\\Code\\\\Projects\\\\Blockwise\")",
-      "Bash(./gradlew assembleDebug:*)"
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(./gradlew clean:*)"
     ]
   }
 }

@@ -1,5 +1,8 @@
 package com.maplume.blockwise.core.designsystem.component
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Flag
@@ -11,18 +14,23 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Today
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 
 /**
- * Navigation item definition
+ * 导航项定义
  */
 enum class BlockwiseNavigationItem(
     val route: String,
@@ -63,7 +71,8 @@ enum class BlockwiseNavigationItem(
 }
 
 /**
- * Bottom navigation bar component
+ * 底部导航栏 - 现代极简风格
+ * 玻璃态效果 + 细腻边框
  */
 @Composable
 fun BlockwiseBottomNavigation(
@@ -71,20 +80,42 @@ fun BlockwiseBottomNavigation(
     onNavigate: (BlockwiseNavigationItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    NavigationBar(modifier = modifier) {
-        BlockwiseNavigationItem.entries.forEach { item ->
-            val selected = currentRoute == item.route
-            NavigationBarItem(
-                selected = selected,
-                onClick = { onNavigate(item) },
-                icon = {
-                    Icon(
-                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.label
+    Column(modifier = modifier) {
+        HorizontalDivider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f)
+        )
+        NavigationBar(
+            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+            tonalElevation = 0.dp
+        ) {
+            BlockwiseNavigationItem.entries.forEach { item ->
+                val selected = currentRoute == item.route
+                NavigationBarItem(
+                    selected = selected,
+                    onClick = { onNavigate(item) },
+                    icon = {
+                        Icon(
+                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.label
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.label,
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
                     )
-                },
-                label = { Text(item.label) }
-            )
+                )
+            }
         }
     }
 }

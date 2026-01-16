@@ -35,7 +35,7 @@ import com.maplume.blockwise.core.designsystem.theme.CornerRadius
 import com.maplume.blockwise.core.designsystem.theme.Spacing
 
 /**
- * Full-screen loading indicator.
+ * 全屏加载指示器 - 现代极简风格
  */
 @Composable
 fun LoadingIndicator(
@@ -46,13 +46,14 @@ fun LoadingIndicator(
         contentAlignment = Alignment.Center
     ) {
         CircularProgressIndicator(
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.primary,
+            strokeWidth = 3.dp
         )
     }
 }
 
 /**
- * Inline loading indicator.
+ * 内联加载指示器 - 现代极简风格
  */
 @Composable
 fun InlineLoadingIndicator(
@@ -67,7 +68,8 @@ fun InlineLoadingIndicator(
 }
 
 /**
- * Full-screen loading overlay with semi-transparent background
+ * 全屏加载遮罩层 - 现代极简风格
+ * 半透明背景 + 可选消息
  */
 @Composable
 fun BlockwiseLoadingOverlay(
@@ -87,7 +89,8 @@ fun BlockwiseLoadingOverlay(
                 verticalArrangement = Arrangement.Center
             ) {
                 CircularProgressIndicator(
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    strokeWidth = 3.dp
                 )
                 if (message != null) {
                     Spacer(modifier = Modifier.height(Spacing.medium))
@@ -103,7 +106,8 @@ fun BlockwiseLoadingOverlay(
 }
 
 /**
- * Shimmer effect for skeleton loading
+ * 骨架屏闪烁效果 - 现代极简风格
+ * 用于内容加载占位
  */
 @Composable
 fun ShimmerEffect(
@@ -146,7 +150,8 @@ fun ShimmerEffect(
 }
 
 /**
- * Skeleton item for list loading
+ * 骨架屏列表项 - 现代极简风格
+ * 用于列表加载占位
  */
 @Composable
 fun SkeletonItem(

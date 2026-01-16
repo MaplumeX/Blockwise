@@ -30,7 +30,8 @@ import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.designsystem.theme.Spacing
 
 /**
- * Linear progress bar with label
+ * 线性进度条 - 现代极简风格
+ * 带标签和百分比显示
  */
 @Composable
 fun BlockwiseLinearProgress(
@@ -81,7 +82,8 @@ fun BlockwiseLinearProgress(
 }
 
 /**
- * Circular progress indicator for goal progress
+ * 环形进度指示器 - 现代极简风格
+ * 用于目标进度显示
  */
 @Composable
 fun BlockwiseCircularProgress(
@@ -137,7 +139,7 @@ fun BlockwiseCircularProgress(
 }
 
 /**
- * Circular progress with percentage text
+ * 环形进度指示器（带百分比文本）- 现代极简风格
  */
 @Composable
 fun BlockwiseCircularProgressWithText(

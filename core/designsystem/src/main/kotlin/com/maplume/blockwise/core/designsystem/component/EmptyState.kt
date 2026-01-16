@@ -24,7 +24,8 @@ import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.designsystem.theme.Spacing
 
 /**
- * Empty state component for displaying when no data is available
+ * 空状态组件 - 现代极简风格
+ * 用于显示无数据时的占位内容
  */
 @Composable
 fun BlockwiseEmptyState(
@@ -71,7 +72,8 @@ fun BlockwiseEmptyState(
 }
 
 /**
- * Error state component for displaying error messages
+ * 错误状态组件 - 现代极简风格
+ * 用于显示错误消息和重试按钮
  */
 @Composable
 fun BlockwiseErrorState(

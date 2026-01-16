@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * Spacing constants following 4dp grid system
+ * 现代极简风格 - 增加留白
  */
 object Spacing {
     val extraSmall = 4.dp
@@ -16,13 +17,14 @@ object Spacing {
 
 /**
  * Corner radius constants
+ * 现代极简风格 - 增大圆角
  */
 object CornerRadius {
-    val small = 4.dp
-    val medium = 8.dp
-    val large = 12.dp
-    val extraLarge = 16.dp
-    val full = 50
+    val small = 8.dp       // rounded-lg
+    val medium = 12.dp     // rounded-xl
+    val large = 16.dp      // rounded-2xl
+    val extraLarge = 24.dp // rounded-3xl
+    val full = 50          // 完全圆角（百分比）
 }
 
 /**
