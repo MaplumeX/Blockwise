@@ -14,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarViewDay
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -57,7 +59,8 @@ import com.maplume.blockwise.feature.timeentry.domain.usecase.timer.RecoverableT
  */
 @Composable
 fun TimerScreen(
-    onNavigateToTimeEntry: (Long) -> Unit,
+    onNavigateToActivityTypes: () -> Unit = {},
+    onNavigateToTimeBlock: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TimerViewModel = hiltViewModel()
 ) {
@@ -103,6 +106,7 @@ fun TimerScreen(
         onRecoverTimer = viewModel::onRecoverTimer,
         onDiscardRecovery = viewModel::onDiscardRecovery,
         onDismissRecoveryDialog = viewModel::dismissRecoveryDialog,
+        onNavigateToTimeBlock = onNavigateToTimeBlock,
         modifier = modifier
     )
 }
@@ -126,6 +130,7 @@ private fun TimerScreenContent(
     onRecoverTimer: () -> Unit,
     onDiscardRecovery: () -> Unit,
     onDismissRecoveryDialog: () -> Unit,
+    onNavigateToTimeBlock: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -196,6 +201,45 @@ private fun TimerScreenContent(
                         Spacer(modifier = Modifier.height(8.dp))
                         TextButton(onClick = onShowActivitySelector) {
                             Text("查看全部活动类型")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Time Block View entry
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onNavigateToTimeBlock),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(
+                                    text = "时间块视图",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "查看今日时间分配",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.Default.CalendarViewDay,
+                                contentDescription = "时间块视图",
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
                         }
                     }
                 }
@@ -470,7 +514,8 @@ private fun TimerScreenIdlePreview() {
             onHideActivitySelector = {},
             onRecoverTimer = {},
             onDiscardRecovery = {},
-            onDismissRecoveryDialog = {}
+            onDismissRecoveryDialog = {},
+            onNavigateToTimeBlock = {}
         )
     }
 }

@@ -68,10 +68,26 @@ import kotlinx.datetime.LocalTime
 @Composable
 fun TimeEntryEditScreen(
     onNavigateBack: () -> Unit,
+    entryId: Long? = null,
+    prefilledDate: LocalDate? = null,
+    prefilledTime: LocalTime? = null,
     viewModel: TimeEntryEditViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Apply prefilled values if provided
+    LaunchedEffect(prefilledDate, prefilledTime) {
+        if (prefilledDate != null) {
+            viewModel.onDateChange(prefilledDate)
+        }
+        if (prefilledTime != null) {
+            viewModel.onStartTimeChange(prefilledTime)
+            // Set end time to 1 hour after start time by default
+            val endHour = (prefilledTime.hour + 1) % 24
+            viewModel.onEndTimeChange(LocalTime(endHour, prefilledTime.minute))
+        }
+    }
 
     // Handle one-time events
     LaunchedEffect(Unit) {

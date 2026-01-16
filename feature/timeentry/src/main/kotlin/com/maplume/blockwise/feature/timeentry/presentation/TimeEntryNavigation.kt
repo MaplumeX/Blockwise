@@ -14,6 +14,10 @@ object TimeEntryNavigation {
     // Timeline routes
     const val TIMELINE_ROUTE = "timeline"
 
+    // Time block routes
+    const val TIME_BLOCK_ROUTE = "time_block"
+    const val TIME_BLOCK_CREATE_ROUTE = "time_block/create/{date}/{hour}/{minute}"
+
     // Activity type routes
     const val ACTIVITY_TYPE_LIST_ROUTE = "activity_types"
     const val ACTIVITY_TYPE_ADD_ROUTE = "activity_types/add"
@@ -24,4 +28,6 @@ object TimeEntryNavigation {
 
     fun editEntryRoute(entryId: Long) = "time_entry/edit/$entryId"
     fun editActivityTypeRoute(activityTypeId: Long) = "activity_types/edit/$activityTypeId"
+    fun timeBlockCreateRoute(date: String, hour: Int, minute: Int) =
+        "time_block/create/$date/$hour/$minute"
 }
