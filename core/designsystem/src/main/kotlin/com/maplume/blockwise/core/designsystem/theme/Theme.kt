@@ -18,43 +18,55 @@ import androidx.core.view.WindowCompat
 private val LightColorScheme = lightColorScheme(
     primary = Primary,
     onPrimary = OnPrimary,
-    primaryContainer = PrimaryLight,
-    onPrimaryContainer = PrimaryDark,
+    primaryContainer = PrimaryContainer,
+    onPrimaryContainer = OnPrimaryContainer,
     secondary = Secondary,
     onSecondary = OnSecondary,
-    secondaryContainer = SecondaryLight,
-    onSecondaryContainer = SecondaryDark,
+    secondaryContainer = SecondaryContainer,
+    onSecondaryContainer = OnSecondaryContainer,
+    tertiary = Tertiary,
+    onTertiary = OnTertiary,
+    tertiaryContainer = TertiaryContainer,
+    onTertiaryContainer = OnTertiaryContainer,
     surface = Surface,
     onSurface = OnSurface,
     surfaceVariant = SurfaceVariant,
-    onSurfaceVariant = OnSurface,
+    onSurfaceVariant = OnSurfaceVariant,
     background = Background,
     onBackground = OnBackground,
     error = Error,
     onError = OnError,
-    errorContainer = ErrorLight,
-    onErrorContainer = OnError
+    errorContainer = ErrorContainer,
+    onErrorContainer = OnErrorContainer,
+    outline = Outline,
+    outlineVariant = OutlineVariant
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Primary,
-    onPrimary = OnPrimary,
-    primaryContainer = PrimaryDark,
-    onPrimaryContainer = PrimaryLight,
-    secondary = Secondary,
-    onSecondary = OnSecondary,
-    secondaryContainer = SecondaryDark,
-    onSecondaryContainer = SecondaryLight,
+    primary = PrimaryDark,
+    onPrimary = OnPrimaryDark,
+    primaryContainer = PrimaryContainerDark,
+    onPrimaryContainer = OnPrimaryContainerDark,
+    secondary = SecondaryDark,
+    onSecondary = OnSecondaryDark,
+    secondaryContainer = SecondaryContainerDark,
+    onSecondaryContainer = OnSecondaryContainerDark,
+    tertiary = TertiaryDark,
+    onTertiary = OnTertiaryDark,
+    tertiaryContainer = TertiaryContainerDark,
+    onTertiaryContainer = OnTertiaryContainerDark,
     surface = SurfaceDark,
     onSurface = OnSurfaceDark,
     surfaceVariant = SurfaceVariantDark,
-    onSurfaceVariant = OnSurfaceDark,
+    onSurfaceVariant = OnSurfaceVariantDark,
     background = BackgroundDark,
     onBackground = OnBackgroundDark,
     error = Error,
     onError = OnError,
-    errorContainer = ErrorLight,
-    onErrorContainer = OnError
+    errorContainer = ErrorContainer,
+    onErrorContainer = OnErrorContainer,
+    outline = OutlineDark,
+    outlineVariant = OutlineVariantDark
 )
 
 /**
@@ -83,7 +95,7 @@ fun BlockwiseTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            window.statusBarColor = colorScheme.surface.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
