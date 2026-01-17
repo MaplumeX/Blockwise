@@ -4,21 +4,19 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Card
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,6 +26,19 @@ import androidx.navigation.navArgument
 import com.maplume.blockwise.core.designsystem.component.BlockwiseBottomNavigation
 import com.maplume.blockwise.core.designsystem.component.BlockwiseNavigationItem
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
+import com.maplume.blockwise.feature.goal.presentation.GoalNavigation
+import com.maplume.blockwise.feature.goal.presentation.detail.GoalDetailScreen
+import com.maplume.blockwise.feature.goal.presentation.edit.GoalEditScreen
+import com.maplume.blockwise.feature.goal.presentation.list.GoalListScreen
+import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
+import com.maplume.blockwise.feature.settings.domain.repository.SettingsRepository
+import com.maplume.blockwise.feature.settings.presentation.SettingsNavigation
+import com.maplume.blockwise.feature.settings.presentation.about.AboutScreen
+import com.maplume.blockwise.feature.settings.presentation.about.LicenseScreen
+import com.maplume.blockwise.feature.settings.presentation.data.DataManagementScreen
+import com.maplume.blockwise.feature.settings.presentation.main.SettingsScreen
+import com.maplume.blockwise.feature.settings.presentation.notification.NotificationScreen
+import com.maplume.blockwise.feature.settings.presentation.theme.ThemeScreen
 import com.maplume.blockwise.feature.statistics.presentation.StatisticsNavigation
 import com.maplume.blockwise.feature.statistics.presentation.StatisticsScreen
 import com.maplume.blockwise.feature.statistics.presentation.component.ActivityTypeDetailScreen
@@ -40,14 +51,22 @@ import com.maplume.blockwise.feature.timeentry.presentation.timeblock.TimeBlockS
 import com.maplume.blockwise.feature.timeentry.presentation.timeentry.TimeEntryEditScreen
 import com.maplume.blockwise.feature.timeentry.presentation.timeline.TimelineScreen
 import com.maplume.blockwise.feature.timeentry.presentation.timer.TimerScreen
-import com.maplume.blockwise.feature.goal.presentation.GoalNavigation
-import com.maplume.blockwise.feature.goal.presentation.detail.GoalDetailScreen
-import com.maplume.blockwise.feature.goal.presentation.edit.GoalEditScreen
-import com.maplume.blockwise.feature.goal.presentation.list.GoalListScreen
 import dagger.hilt.android.AndroidEntryPoint
-import java.net.URLDecoder
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import java.net.URLDecoder
+import javax.inject.Inject
+
+/**
+ * ViewModel for MainActivity to handle theme state.
+ */
+@HiltViewModel
+class MainViewModel @Inject constructor(
+    settingsRepository: SettingsRepository
+) : ViewModel() {
+    val themeMode = settingsRepository.getThemeMode()
+}
 
 /**
  * Main activity of the Blockwise application.
@@ -58,7 +77,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            BlockwiseTheme {
+            val viewModel: MainViewModel = hiltViewModel()
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+
+            val darkTheme = when (themeMode) {
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+            }
+
+            BlockwiseTheme(darkTheme = darkTheme) {
                 BlockwiseApp()
             }
         }
@@ -236,15 +264,67 @@ fun BlockwiseApp() {
                 )
             }
 
-            // Settings
+            // ==================== Settings Routes ====================
+
+            // Settings Main
             composable(BlockwiseNavigationItem.SETTINGS.route) {
                 SettingsScreen(
+                    onNavigateToTheme = {
+                        navController.navigate(SettingsNavigation.THEME_ROUTE)
+                    },
+                    onNavigateToNotification = {
+                        navController.navigate(SettingsNavigation.NOTIFICATION_ROUTE)
+                    },
+                    onNavigateToDataManagement = {
+                        navController.navigate(SettingsNavigation.DATA_ROUTE)
+                    },
+                    onNavigateToAbout = {
+                        navController.navigate(SettingsNavigation.ABOUT_ROUTE)
+                    },
                     onNavigateToActivityTypes = {
                         navController.navigate(TimeEntryNavigation.ACTIVITY_TYPE_LIST_ROUTE)
                     },
                     onNavigateToTags = {
                         navController.navigate(TimeEntryNavigation.TAG_MANAGEMENT_ROUTE)
                     }
+                )
+            }
+
+            // Theme Settings
+            composable(SettingsNavigation.THEME_ROUTE) {
+                ThemeScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Notification Settings
+            composable(SettingsNavigation.NOTIFICATION_ROUTE) {
+                NotificationScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Data Management
+            composable(SettingsNavigation.DATA_ROUTE) {
+                DataManagementScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // About
+            composable(SettingsNavigation.ABOUT_ROUTE) {
+                AboutScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToLicenses = {
+                        navController.navigate(SettingsNavigation.LICENSE_ROUTE)
+                    }
+                )
+            }
+
+            // License
+            composable(SettingsNavigation.LICENSE_ROUTE) {
+                LicenseScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -352,66 +432,6 @@ fun BlockwiseApp() {
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
-        }
-    }
-}
-
-/**
- * Settings screen with navigation to management screens.
- */
-@Composable
-fun SettingsScreen(
-    onNavigateToActivityTypes: () -> Unit,
-    onNavigateToTags: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = "设置",
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        SettingsItem(
-            title = "活动类型管理",
-            subtitle = "管理时间记录的活动分类",
-            onClick = onNavigateToActivityTypes
-        )
-
-        SettingsItem(
-            title = "标签管理",
-            subtitle = "管理时间记录的标签",
-            onClick = onNavigateToTags
-        )
-    }
-}
-
-@Composable
-private fun SettingsItem(
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }

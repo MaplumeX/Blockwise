@@ -117,5 +117,9 @@ interface TimeEntryDao {
     @Transaction
     @Query("SELECT * FROM time_entries ORDER BY end_time DESC LIMIT 1")
     suspend fun getLatest(): TimeEntryWithDetails?
+
+    @Transaction
+    @Query("SELECT * FROM time_entries ORDER BY start_time ASC")
+    fun getAllWithDetails(): Flow<List<TimeEntryWithDetails>>
 }
 
