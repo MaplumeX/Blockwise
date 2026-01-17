@@ -7,7 +7,15 @@
       "Bash(./gradlew clean:*)",
       "Bash(ls:*)",
       "Bash(wc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(./gradlew:*)",
+      "Bash(cmd /c \"gradlew.bat :feature:settings:compileDebugKotlin\")",
+      "Bash(./gradlew.bat:*)",
+      "Bash(gradlew.bat assembleDebug:*)",
+      "Bash(\"E:/Code/Projects/Blockwise/gradlew.bat\" -p \"E:/Code/Projects/Blockwise\" assembleDebug)",
+      "Bash(done)",
+      "Bash(E:)"
     ]
   }
 }
