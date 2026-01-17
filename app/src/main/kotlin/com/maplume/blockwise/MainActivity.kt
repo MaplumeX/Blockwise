@@ -56,8 +56,10 @@ import com.maplume.blockwise.feature.timeentry.presentation.timeline.TimelineScr
 import com.maplume.blockwise.feature.timeentry.presentation.timer.TimerScreen
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.toLocalDateTime
 import java.net.URLDecoder
 import javax.inject.Inject
 
@@ -176,6 +178,14 @@ fun BlockwiseApp(onboardingCompleted: Boolean) {
                 TimelineScreen(
                     onNavigateToEdit = { entryId ->
                         navController.navigate(TimeEntryNavigation.editEntryRoute(entryId))
+                    },
+                    onNavigateToCreateFromGap = { startTime, endTime ->
+                        navController.navigate(
+                            TimeEntryNavigation.createFromGapRoute(
+                                startTimeMillis = startTime.toEpochMilliseconds(),
+                                endTimeMillis = endTime.toEpochMilliseconds()
+                            )
+                        )
                     }
                 )
             }
@@ -410,6 +420,32 @@ fun BlockwiseApp(onboardingCompleted: Boolean) {
                     entryId = null,
                     prefilledDate = dateStr?.let { LocalDate.parse(it) },
                     prefilledTime = LocalTime(hour, minute),
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(
+                route = TimeEntryNavigation.GAP_CREATE_ROUTE,
+                arguments = listOf(
+                    navArgument("startMillis") { type = NavType.LongType },
+                    navArgument("endMillis") { type = NavType.LongType }
+                )
+            ) { backStackEntry ->
+                val startMillis = backStackEntry.arguments?.getLong("startMillis") ?: 0L
+                val endMillis = backStackEntry.arguments?.getLong("endMillis") ?: 0L
+
+                val tz = kotlinx.datetime.TimeZone.currentSystemDefault()
+                val start = Instant.fromEpochMilliseconds(startMillis)
+                val end = Instant.fromEpochMilliseconds(endMillis)
+
+                val startLocal = start.toLocalDateTime(tz)
+                val endLocal = end.toLocalDateTime(tz)
+
+                TimeEntryEditScreen(
+                    entryId = null,
+                    prefilledDate = startLocal.date,
+                    prefilledTime = startLocal.time,
+                    prefilledEndTime = endLocal.time,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

@@ -8,6 +8,8 @@ import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.GetTimelineEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.MergeTimeEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.SplitTimeEntryUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -84,7 +86,7 @@ class TimelineViewModel @Inject constructor(
                     _uiState.update { it.copy(
                         dayGroups = dayGroups,
                         isLoading = false,
-                        hasMore = dayGroups.sumOf { group -> group.entries.size } >= pageSize
+                        hasMore = dayGroups.sumOf { group -> group.entryCount } >= pageSize
                     )}
                 }
         }
@@ -116,7 +118,7 @@ class TimelineViewModel @Inject constructor(
                         currentState.copy(
                             dayGroups = mergedGroups,
                             isLoadingMore = false,
-                            hasMore = newDayGroups.sumOf { it.entries.size } >= pageSize
+                            hasMore = newDayGroups.sumOf { it.entryCount } >= pageSize
                         )
                     }
                 }
@@ -132,14 +134,21 @@ class TimelineViewModel @Inject constructor(
         new.forEach { newGroup ->
             val existingGroup = groupMap[newGroup.date]
             if (existingGroup != null) {
-                // Merge entries for the same date
-                val mergedEntries = (existingGroup.entries + newGroup.entries)
+                val existingEntries = existingGroup.items
+                    .mapNotNull { it as? TimelineItem.Entry }
+                    .map { it.entry }
+
+                val newEntries = newGroup.items
+                    .mapNotNull { it as? TimelineItem.Entry }
+                    .map { it.entry }
+
+                val mergedEntries = (existingEntries + newEntries)
                     .distinctBy { it.id }
                     .sortedByDescending { it.startTime }
-                groupMap[newGroup.date] = DayGroup(
+
+                groupMap[newGroup.date] = createDayGroup(
                     date = newGroup.date,
-                    entries = mergedEntries,
-                    totalMinutes = mergedEntries.sumOf { it.durationMinutes }
+                    entries = mergedEntries
                 )
             } else {
                 groupMap[newGroup.date] = newGroup

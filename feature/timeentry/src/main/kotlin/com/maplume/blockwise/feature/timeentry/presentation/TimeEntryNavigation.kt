@@ -17,6 +17,7 @@ object TimeEntryNavigation {
     // Time block routes
     const val TIME_BLOCK_ROUTE = "time_block"
     const val TIME_BLOCK_CREATE_ROUTE = "time_block/create/{date}/{hour}/{minute}"
+    const val GAP_CREATE_ROUTE = "time_entry/create_gap/{startMillis}/{endMillis}"
 
     // Activity type routes
     const val ACTIVITY_TYPE_LIST_ROUTE = "activity_types"
@@ -30,4 +31,7 @@ object TimeEntryNavigation {
     fun editActivityTypeRoute(activityTypeId: Long) = "activity_types/edit/$activityTypeId"
     fun timeBlockCreateRoute(date: String, hour: Int, minute: Int) =
         "time_block/create/$date/$hour/$minute"
+
+    fun createFromGapRoute(startTimeMillis: Long, endTimeMillis: Long) =
+        "time_entry/create_gap/$startTimeMillis/$endTimeMillis"
 }

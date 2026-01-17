@@ -71,23 +71,28 @@ fun TimeEntryEditScreen(
     entryId: Long? = null,
     prefilledDate: LocalDate? = null,
     prefilledTime: LocalTime? = null,
+    prefilledEndTime: LocalTime? = null,
     viewModel: TimeEntryEditViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Apply prefilled values if provided
-    LaunchedEffect(prefilledDate, prefilledTime) {
+    LaunchedEffect(prefilledDate, prefilledTime, prefilledEndTime) {
         if (prefilledDate != null) {
             viewModel.onDateChange(prefilledDate)
         }
         if (prefilledTime != null) {
             viewModel.onStartTimeChange(prefilledTime)
-            // Set end time to 1 hour after start time by default
-            val endHour = (prefilledTime.hour + 1) % 24
-            viewModel.onEndTimeChange(LocalTime(endHour, prefilledTime.minute))
+
+            val endTime = prefilledEndTime ?: run {
+                val endHour = (prefilledTime.hour + 1) % 24
+                LocalTime(endHour, prefilledTime.minute)
+            }
+
+            viewModel.onEndTimeChange(endTime)
         }
     }
+
 
     // Handle one-time events
     LaunchedEffect(Unit) {

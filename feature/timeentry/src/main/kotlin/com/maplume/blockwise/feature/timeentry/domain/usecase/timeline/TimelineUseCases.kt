@@ -4,19 +4,32 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.core.domain.repository.TimeEntryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
-/**
- * Data class representing a group of time entries for a specific date.
- */
+sealed interface TimelineItem {
+    data class Entry(val entry: TimeEntry) : TimelineItem
+
+    data class UntrackedGap(
+        val startTime: Instant,
+        val endTime: Instant
+    ) : TimelineItem
+}
+
 data class DayGroup(
     val date: LocalDate,
-    val entries: List<TimeEntry>,
+    val items: List<TimelineItem>,
     val totalMinutes: Int
 ) {
+    val entryCount: Int
+        get() = items.count { it is TimelineItem.Entry }
+
     val formattedTotalDuration: String
         get() {
             val hours = totalMinutes / 60
@@ -27,6 +40,72 @@ data class DayGroup(
                 else -> "${minutes}分钟"
             }
         }
+}
+
+internal fun createDayGroup(
+    date: LocalDate,
+    entries: List<TimeEntry>,
+    timeZone: TimeZone = TimeZone.currentSystemDefault()
+): DayGroup {
+    val sortedEntries = entries.sortedBy { it.startTime }
+    return DayGroup(
+        date = date,
+        items = buildTimelineItemsForDay(date = date, sortedEntriesByStart = sortedEntries, timeZone = timeZone),
+        totalMinutes = entries.sumOf { it.durationMinutes }
+    )
+}
+
+internal fun buildTimelineItemsForDay(
+    date: LocalDate,
+    sortedEntriesByStart: List<TimeEntry>,
+    timeZone: TimeZone
+): List<TimelineItem> {
+    if (sortedEntriesByStart.isEmpty()) return emptyList()
+
+    val dayStart = date.atTime(LocalTime(0, 0)).toInstant(timeZone)
+    val nextDate = LocalDate.fromEpochDays(date.toEpochDays() + 1)
+    val dayEnd = nextDate.atTime(LocalTime(0, 0)).toInstant(timeZone)
+
+    val items = mutableListOf<TimelineItem>()
+
+    fun maybeAddGap(start: Instant, end: Instant) {
+        val durationMillis = end.toEpochMilliseconds() - start.toEpochMilliseconds()
+        if (durationMillis >= 60_000) {
+            items.add(TimelineItem.UntrackedGap(startTime = start, endTime = end))
+        }
+    }
+
+    var currentEnd: Instant? = null
+
+    for (entry in sortedEntriesByStart) {
+        val clippedStart = maxOf(entry.startTime, dayStart)
+        val clippedEnd = minOf(entry.endTime, dayEnd)
+
+        if (clippedEnd <= dayStart || clippedStart >= dayEnd) continue
+
+        if (currentEnd == null) {
+            if (clippedStart > dayStart) {
+                maybeAddGap(dayStart, clippedStart)
+            }
+            items.add(TimelineItem.Entry(entry))
+            currentEnd = clippedEnd
+        } else {
+            if (clippedStart > currentEnd) {
+                maybeAddGap(currentEnd, clippedStart)
+            }
+            items.add(TimelineItem.Entry(entry))
+            if (clippedEnd > currentEnd) {
+                currentEnd = clippedEnd
+            }
+        }
+    }
+
+    val lastEnd = currentEnd ?: return items
+    if (dayEnd > lastEnd) {
+        maybeAddGap(lastEnd, dayEnd)
+    }
+
+    return items
 }
 
 /**
@@ -51,16 +130,13 @@ class GetTimelineEntriesUseCase @Inject constructor(
      * Group entries by date and calculate totals.
      */
     private fun groupEntriesByDate(entries: List<TimeEntry>): List<DayGroup> {
+        val tz = TimeZone.currentSystemDefault()
         return entries
             .groupBy { entry ->
-                entry.startTime.toLocalDateTime(TimeZone.currentSystemDefault()).date
+                entry.startTime.toLocalDateTime(tz).date
             }
             .map { (date, dayEntries) ->
-                DayGroup(
-                    date = date,
-                    entries = dayEntries.sortedByDescending { it.startTime },
-                    totalMinutes = dayEntries.sumOf { it.durationMinutes }
-                )
+                createDayGroup(date = date, entries = dayEntries, timeZone = tz)
             }
             .sortedByDescending { it.date }
     }

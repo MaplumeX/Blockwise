@@ -59,6 +59,8 @@ import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -72,6 +74,7 @@ import kotlin.time.Duration.Companion.hours
 @Composable
 fun TimelineScreen(
     onNavigateToEdit: (Long) -> Unit,
+    onNavigateToCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: TimelineViewModel = hiltViewModel()
 ) {
@@ -108,6 +111,7 @@ fun TimelineScreen(
         onMergeRequest = viewModel::onMergeRequest,
         onMergeConfirm = viewModel::onMergeConfirm,
         onMergeCancel = viewModel::onMergeCancel,
+        onCreateFromGap = onNavigateToCreateFromGap,
         modifier = modifier
     )
 }
@@ -131,8 +135,10 @@ private fun TimelineScreenContent(
     onMergeRequest: () -> Unit,
     onMergeConfirm: () -> Unit,
     onMergeCancel: () -> Unit,
+    onCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val onCreateFromGapSafe = onCreateFromGap
     val listState = rememberLazyListState()
 
     // Detect when to load more
@@ -218,19 +224,38 @@ private fun TimelineScreenContent(
                             )
                         }
 
-                        // Entries for this day
                         items(
-                            items = dayGroup.entries,
-                            key = { it.id }
-                        ) { entry ->
-                            TimeEntryItem(
-                                entry = entry,
-                                isSelected = entry.id in uiState.selectedEntryIds,
-                                isSelectionMode = uiState.isSelectionMode,
-                                onClick = { onEntryClick(entry) },
-                                onLongClick = { onEntryLongPress(entry) },
-                                modifier = Modifier.animateItem()
-                            )
+                            items = dayGroup.items,
+                            key = { item ->
+                                when (item) {
+                                    is TimelineItem.Entry -> "entry-${item.entry.id}"
+                                    is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
+                                }
+                            }
+                        ) { item ->
+                            when (item) {
+                                is TimelineItem.Entry -> {
+                                    val entry = item.entry
+                                    TimeEntryItem(
+                                        entry = entry,
+                                        isSelected = entry.id in uiState.selectedEntryIds,
+                                        isSelectionMode = uiState.isSelectionMode,
+                                        onClick = { onEntryClick(entry) },
+                                        onLongClick = { onEntryLongPress(entry) },
+                                        modifier = Modifier.animateItem()
+                                    )
+                                }
+                                is TimelineItem.UntrackedGap -> {
+                                    UntrackedGapItem(
+                                        startTime = item.startTime,
+                                        endTime = item.endTime,
+                                        onClick = {
+                                            onCreateFromGapSafe(item.startTime, item.endTime)
+                                        },
+                                        modifier = Modifier.animateItem()
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -477,7 +502,7 @@ private fun TimelineScreenPreview() {
         TimelineScreenContent(
             uiState = TimelineUiState(
                 dayGroups = listOf(
-                    DayGroup(
+                    createDayGroup(
                         date = today,
                         entries = listOf(
                             TimeEntry(
@@ -498,8 +523,7 @@ private fun TimelineScreenPreview() {
                                 note = null,
                                 tags = emptyList()
                             )
-                        ),
-                        totalMinutes = 240
+                        )
                     )
                 ),
                 isLoading = false
@@ -518,7 +542,8 @@ private fun TimelineScreenPreview() {
             onSplitCancel = {},
             onMergeRequest = {},
             onMergeConfirm = {},
-            onMergeCancel = {}
+            onMergeCancel = {},
+            onCreateFromGap = { _, _ -> }
         )
     }
 }
@@ -546,7 +571,8 @@ private fun EmptyTimelinePreview() {
             onSplitCancel = {},
             onMergeRequest = {},
             onMergeConfirm = {},
-            onMergeCancel = {}
+            onMergeCancel = {},
+            onCreateFromGap = { _, _ -> }
         )
     }
 }
