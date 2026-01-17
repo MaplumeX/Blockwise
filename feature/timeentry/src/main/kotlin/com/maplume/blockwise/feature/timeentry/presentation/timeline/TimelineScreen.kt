@@ -207,7 +207,7 @@ private fun TimelineScreenContent(
                 LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     uiState.dayGroups.forEach { dayGroup ->
                         // Sticky header for date

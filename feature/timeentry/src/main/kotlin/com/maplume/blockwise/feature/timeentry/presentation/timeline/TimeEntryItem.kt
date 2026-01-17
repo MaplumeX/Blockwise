@@ -1,5 +1,6 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeline
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -21,12 +22,17 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -52,125 +58,153 @@ fun TimeEntryItem(
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            ),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) {
-                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 1.dp
-        )
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Activity color indicator
-            Box(
-                modifier = Modifier
-                    .size(4.dp, 48.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(parseColor(entry.activity.colorHex))
+    val axisWidth = 32.dp
+    val nodeSize = 14.dp
+    val lineWidth = 2.dp
+    val activityColor = parseColor(entry.activity.colorHex)
+    val lineColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val surfaceColor = MaterialTheme.colorScheme.surface
+
+    Box(modifier = modifier.fillMaxWidth()) {
+        // Vertical Timeline Axis
+        Canvas(modifier = Modifier.matchParentSize()) {
+            val axisCenterX = axisWidth.toPx() / 2
+            
+            // Draw continuous line
+            drawLine(
+                color = lineColor,
+                start = Offset(axisCenterX, 0f),
+                end = Offset(axisCenterX, size.height),
+                strokeWidth = lineWidth.toPx()
             )
+            
+            // Draw node (aligned with card content top area)
+            // Card padding is 16.dp. Title is approx 24dp high (TitleMedium).
+            // Center aligns at roughly 16 + 12 = 28dp.
+            val nodeCenterY = 28.dp.toPx()
+            val nodeRadius = nodeSize.toPx() / 2
+            
+            // Draw hollow dot (Surface fill + Activity color border)
+            drawCircle(
+                color = surfaceColor,
+                radius = nodeRadius,
+                center = Offset(axisCenterX, nodeCenterY)
+            )
+            drawCircle(
+                color = activityColor,
+                radius = nodeRadius,
+                center = Offset(axisCenterX, nodeCenterY),
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Main content
-            Column(
-                modifier = Modifier.weight(1f)
+        // Card Content
+        Card(
+            modifier = Modifier
+                .padding(start = axisWidth)
+                .padding(bottom = 8.dp) // Spacing between items
+                .fillMaxWidth()
+                .testTag("timeEntryItem-${entry.id}")
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick
+                ),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                } else {
+                    MaterialTheme.colorScheme.surface
+                }
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = if (isSelected) 4.dp else 1.dp
+            )
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Activity name
-                Text(
-                    text = entry.activity.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Time range
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
+                // Main Info Column
+                Column(
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = formatTimeRange(entry),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    // Header: Title + Activity Type
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Title (Note or Activity Name fallback)
+                        Text(
+                            text = if (!entry.note.isNullOrBlank()) entry.note!! else entry.activity.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        
+                        Spacer(modifier = Modifier.width(8.dp))
+                        
+                        // Activity Type Name
+                        Text(
+                            text = entry.activity.name,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
-                    // Duration badge
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(MaterialTheme.colorScheme.secondaryContainer)
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    // Time Range Chip
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), // Light background
                     ) {
                         Text(
-                            text = entry.formattedDuration,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                            text = formatTimeRange(entry),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontFamily = FontFamily.Monospace
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                         )
+                    }
+                    
+                    // Tags
+                    if (entry.tags.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        TagsRow(tags = entry.tags)
                     }
                 }
 
-                // Tags
-                if (entry.tags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    TagsRow(tags = entry.tags)
-                }
-
-                // Note preview
-                if (!entry.note.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = entry.note!!,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // Selection indicator
-            if (isSelectionMode) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (isSelected) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            }
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isSelected) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = "已选择",
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
+                // Selection indicator
+                if (isSelectionMode) {
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isSelected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceVariant
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "已选择",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                 }
             }

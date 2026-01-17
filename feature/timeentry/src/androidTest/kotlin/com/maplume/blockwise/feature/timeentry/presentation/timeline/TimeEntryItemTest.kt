@@ -1,7 +1,9 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeline
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performLongClick
@@ -75,7 +77,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithText("学习英语").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("学习英语")
     }
 
     // ==================== Duration Display Tests ====================
@@ -99,7 +101,7 @@ class TimeEntryItemTest {
         }
 
         // Then - duration should be displayed (1小时30分钟)
-        composeTestRule.onNodeWithText("1小时30分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("1小时30分钟")
     }
 
     @Test
@@ -121,7 +123,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithText("2小时").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("2小时")
     }
 
     @Test
@@ -143,7 +145,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithText("30分钟").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("30分钟")
     }
 
     // ==================== Click Interaction Tests ====================
@@ -167,7 +169,7 @@ class TimeEntryItemTest {
         }
 
         // When
-        composeTestRule.onNodeWithText("工作").performClick()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").performClick()
 
         // Then
         assertTrue(clicked)
@@ -192,7 +194,7 @@ class TimeEntryItemTest {
         }
 
         // When
-        composeTestRule.onNodeWithText("工作").performLongClick()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").performLongClick()
 
         // Then
         assertTrue(longClicked)
@@ -219,7 +221,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithText("完成项目文档").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("完成项目文档")
     }
 
     @Test
@@ -240,8 +242,8 @@ class TimeEntryItemTest {
             }
         }
 
-        // Then - activity name should be displayed, but no note element
-        composeTestRule.onNodeWithText("工作").assertIsDisplayed()
+        // Then
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("工作")
     }
 
     // ==================== Tags Display Tests ====================
@@ -322,6 +324,6 @@ class TimeEntryItemTest {
         }
 
         // Then - "已选择" content description indicates selection
-        composeTestRule.onNodeWithText("工作").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("工作")
     }
 }
