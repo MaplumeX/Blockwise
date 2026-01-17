@@ -30,6 +30,7 @@ include(":core:common")
 include(":core:designsystem")
 include(":core:data")
 include(":core:domain")
+include(":core:testing")
 
 // Feature modules
 include(":feature:timeentry")

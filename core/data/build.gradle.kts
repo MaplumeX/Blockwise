@@ -66,6 +66,9 @@ dependencies {
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.bundles.testing)
+
+    // Android Testing
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }
