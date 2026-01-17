@@ -95,7 +95,7 @@ Data (Repository实现 + DAO + Entity)
 
 ## 关键文档
 
-- `docs/PRD.md` - 产品需求文档
+- `docs/PRD/` - 产品需求文档
 - `docs/技术框架方案.md` - 技术架构设计
 - `docs/CODING_STANDARDS.md` - 完整开发规范
 - `docs/tasks/` - 各阶段任务文档
