@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.maplume.blockwise.feature.settings.domain.model.NotificationSettings
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
@@ -43,6 +44,12 @@ class SettingsDataStore @Inject constructor(
     private val autoBackupEnabledKey = booleanPreferencesKey("auto_backup_enabled")
     private val lastBackupTimeKey = longPreferencesKey("last_backup_time")
 
+    // Onboarding
+    private val onboardingCompletedKey = booleanPreferencesKey("onboarding_completed")
+
+    // Tooltips
+    private val shownTooltipsKey = stringSetPreferencesKey("shown_tooltips")
+
     /**
      * Get the current theme mode as a Flow.
      */
@@ -75,6 +82,20 @@ class SettingsDataStore @Inject constructor(
      */
     val lastBackupTime: Flow<Long?> = dataStore.data.map { preferences ->
         preferences[lastBackupTimeKey]
+    }
+
+    /**
+     * Get onboarding completed state as a Flow.
+     */
+    val onboardingCompleted: Flow<Boolean> = dataStore.data.map { preferences ->
+        preferences[onboardingCompletedKey] ?: false
+    }
+
+    /**
+     * Get shown tooltips as a Flow.
+     */
+    val shownTooltips: Flow<Set<String>> = dataStore.data.map { preferences ->
+        preferences[shownTooltipsKey] ?: emptySet()
     }
 
     /**
@@ -137,6 +158,34 @@ class SettingsDataStore @Inject constructor(
     suspend fun setLastBackupTime(timestamp: Long) {
         dataStore.edit { preferences ->
             preferences[lastBackupTimeKey] = timestamp
+        }
+    }
+
+    /**
+     * Update onboarding completed state.
+     */
+    suspend fun setOnboardingCompleted(completed: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[onboardingCompletedKey] = completed
+        }
+    }
+
+    /**
+     * Mark a tooltip as shown.
+     */
+    suspend fun markTooltipShown(tooltipId: String) {
+        dataStore.edit { preferences ->
+            val current = preferences[shownTooltipsKey] ?: emptySet()
+            preferences[shownTooltipsKey] = current + tooltipId
+        }
+    }
+
+    /**
+     * Reset all shown tooltips.
+     */
+    suspend fun resetTooltips() {
+        dataStore.edit { preferences ->
+            preferences[shownTooltipsKey] = emptySet()
         }
     }
 }

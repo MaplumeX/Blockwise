@@ -30,6 +30,9 @@ import com.maplume.blockwise.feature.goal.presentation.GoalNavigation
 import com.maplume.blockwise.feature.goal.presentation.detail.GoalDetailScreen
 import com.maplume.blockwise.feature.goal.presentation.edit.GoalEditScreen
 import com.maplume.blockwise.feature.goal.presentation.list.GoalListScreen
+import com.maplume.blockwise.feature.onboarding.presentation.OnboardingNavigation
+import com.maplume.blockwise.feature.onboarding.presentation.OnboardingScreen
+import com.maplume.blockwise.feature.settings.data.datastore.SettingsDataStore
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
 import com.maplume.blockwise.feature.settings.domain.repository.SettingsRepository
 import com.maplume.blockwise.feature.settings.presentation.SettingsNavigation
@@ -59,13 +62,15 @@ import java.net.URLDecoder
 import javax.inject.Inject
 
 /**
- * ViewModel for MainActivity to handle theme state.
+ * ViewModel for MainActivity to handle theme state and onboarding state.
  */
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository,
+    settingsDataStore: SettingsDataStore
 ) : ViewModel() {
     val themeMode = settingsRepository.getThemeMode()
+    val onboardingCompleted = settingsDataStore.onboardingCompleted
 }
 
 /**
@@ -79,6 +84,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val viewModel: MainViewModel = hiltViewModel()
             val themeMode by viewModel.themeMode.collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+            val onboardingCompleted by viewModel.onboardingCompleted
+                .collectAsStateWithLifecycle(initialValue = true)
 
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT -> false
@@ -87,17 +94,24 @@ class MainActivity : ComponentActivity() {
             }
 
             BlockwiseTheme(darkTheme = darkTheme) {
-                BlockwiseApp()
+                BlockwiseApp(onboardingCompleted = onboardingCompleted)
             }
         }
     }
 }
 
 @Composable
-fun BlockwiseApp() {
+fun BlockwiseApp(onboardingCompleted: Boolean) {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: BlockwiseNavigationItem.TODAY.route
+
+    // Determine start destination based on onboarding state
+    val startDestination = if (onboardingCompleted) {
+        BlockwiseNavigationItem.TODAY.route
+    } else {
+        OnboardingNavigation.ROUTE
+    }
 
     // Determine if bottom bar should be shown
     val showBottomBar = currentRoute in listOf(
@@ -129,9 +143,20 @@ fun BlockwiseApp() {
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = BlockwiseNavigationItem.TODAY.route,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // ==================== Onboarding ====================
+            composable(OnboardingNavigation.ROUTE) {
+                OnboardingScreen(
+                    onComplete = {
+                        navController.navigate(BlockwiseNavigationItem.TODAY.route) {
+                            popUpTo(OnboardingNavigation.ROUTE) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
             // ==================== Main Tabs ====================
 
             // Today - Timer + Time Block View

@@ -1,0 +1,62 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="240dp"
+    android:height="240dp"
+    android:viewportWidth="240"
+    android:viewportHeight="240">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M120,120m-100,0a100,100 0,1 1,200 0a100,100 0,1 1,-200 0"/>
+
+    <!-- Clock face -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M120,120m-70,0a70,70 0,1 1,140 0a70,70 0,1 1,-140 0"/>
+
+    <!-- Clock center -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M120,120m-8,0a8,8 0,1 1,16 0a8,8 0,1 1,-16 0"/>
+
+    <!-- Hour hand -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M116,120L116,85L124,85L124,120Z"
+        android:strokeWidth="0"/>
+
+    <!-- Minute hand -->
+    <path
+        android:fillColor="#1976D2"
+        android:pathData="M120,116L155,116L155,124L120,124Z"
+        android:strokeWidth="0"/>
+
+    <!-- Hour markers -->
+    <path
+        android:fillColor="#1976D2"
+        android:fillAlpha="0.3"
+        android:pathData="M117,55L123,55L123,65L117,65Z"/>
+    <path
+        android:fillColor="#1976D2"
+        android:fillAlpha="0.3"
+        android:pathData="M117,175L123,175L123,185L117,185Z"/>
+    <path
+        android:fillColor="#1976D2"
+        android:fillAlpha="0.3"
+        android:pathData="M175,117L185,117L185,123L175,123Z"/>
+    <path
+        android:fillColor="#1976D2"
+        android:fillAlpha="0.3"
+        android:pathData="M55,117L65,117L65,123L55,123Z"/>
+
+    <!-- Small decorative circles -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.3"
+        android:pathData="M40,60m-15,0a15,15 0,1 1,30 0a15,15 0,1 1,-30 0"/>
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.2"
+        android:pathData="M200,180m-10,0a10,10 0,1 1,20 0a10,10 0,1 1,-20 0"/>
+</vector>

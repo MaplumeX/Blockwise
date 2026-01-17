@@ -10,9 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Analytics
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -27,6 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.maplume.blockwise.core.designsystem.component.BlockwiseEmptyState
+import com.maplume.blockwise.core.designsystem.component.BlockwiseErrorState
+import com.maplume.blockwise.core.designsystem.component.LoadingIndicator
 import com.maplume.blockwise.feature.statistics.presentation.chart.BlockwiseBarChart
 import com.maplume.blockwise.feature.statistics.presentation.chart.BlockwisePieChart
 import com.maplume.blockwise.feature.statistics.presentation.chart.HourlyDistributionChart
@@ -106,6 +110,9 @@ fun StatisticsScreen(
                         onTagClick = onNavigateToTagDetail
                     )
                 }
+                else -> {
+                    EmptyStatisticsContent()
+                }
             }
         }
     }
@@ -117,7 +124,7 @@ private fun LoadingContent() {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        CircularProgressIndicator()
+        LoadingIndicator()
     }
 }
 
@@ -130,19 +137,25 @@ private fun ErrorContent(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
-            )
-            androidx.compose.material3.TextButton(onClick = onRetry) {
-                Text("重试")
-            }
-        }
+        BlockwiseErrorState(
+            title = "加载失败",
+            description = message,
+            onRetry = onRetry
+        )
+    }
+}
+
+@Composable
+private fun EmptyStatisticsContent() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        BlockwiseEmptyState(
+            title = "暂无统计数据",
+            description = "开始记录时间后，这里将显示你的时间分析",
+            icon = Icons.Outlined.Analytics
+        )
     }
 }
 
