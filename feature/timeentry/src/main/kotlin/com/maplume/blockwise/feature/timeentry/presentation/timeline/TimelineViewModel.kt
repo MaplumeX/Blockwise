@@ -4,13 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.DeleteTimeEntryUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.GetTimeEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
-import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.GetTimelineEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.MergeTimeEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.SplitTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -19,24 +20,42 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atTime
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 /**
  * UI state for the timeline screen.
  */
 data class TimelineUiState(
+    val selectedDate: LocalDate = Clock.System.now()
+        .toLocalDateTime(TimeZone.currentSystemDefault()).date,
     val dayGroups: List<DayGroup> = emptyList(),
     val isLoading: Boolean = true,
-    val isLoadingMore: Boolean = false,
-    val hasMore: Boolean = true,
     val error: String? = null,
     val selectedEntryIds: Set<Long> = emptySet(),
     val isSelectionMode: Boolean = false,
     val entryToDelete: TimeEntry? = null,
     val entryToSplit: TimeEntry? = null,
-    val showMergeConfirmation: Boolean = false
-)
+    val showMergeConfirmation: Boolean = false,
+    val showDatePicker: Boolean = false
+) {
+    val weekStartDate: LocalDate
+        get() {
+            val dayOfWeek = selectedDate.dayOfWeek
+            val daysFromMonday = dayOfWeek.ordinal
+            return selectedDate.minus(daysFromMonday, DateTimeUnit.DAY)
+        }
+}
 
 /**
  * One-time events from the timeline.
@@ -54,7 +73,7 @@ sealed class TimelineEvent {
  */
 @HiltViewModel
 class TimelineViewModel @Inject constructor(
-    private val getTimelineEntries: GetTimelineEntriesUseCase,
+    private val getTimeEntries: GetTimeEntriesUseCase,
     private val deleteTimeEntry: DeleteTimeEntryUseCase,
     private val splitTimeEntry: SplitTimeEntryUseCase,
     private val mergeTimeEntries: MergeTimeEntriesUseCase
@@ -66,28 +85,42 @@ class TimelineViewModel @Inject constructor(
     private val _events = MutableSharedFlow<TimelineEvent>()
     val events: SharedFlow<TimelineEvent> = _events.asSharedFlow()
 
-    private var currentOffset = 0
-    private val pageSize = 50
+    private var loadJob: Job? = null
 
     init {
         loadEntries()
     }
 
     /**
-     * Load initial entries.
+     * Load entries for the current week.
      */
     private fun loadEntries() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            currentOffset = 0
 
-            getTimelineEntries(limit = pageSize, offset = 0)
-                .collect { dayGroups ->
-                    _uiState.update { it.copy(
-                        dayGroups = dayGroups,
-                        isLoading = false,
-                        hasMore = dayGroups.sumOf { group -> group.entryCount } >= pageSize
-                    )}
+            val weekStart = _uiState.value.weekStartDate
+            val weekEnd = weekStart.plus(7, DateTimeUnit.DAY) // Start of next week
+
+            val tz = TimeZone.currentSystemDefault()
+            val startInstant = weekStart.atTime(LocalTime(0, 0)).toInstant(tz)
+            val endInstant = weekEnd.atTime(LocalTime(0, 0)).toInstant(tz)
+
+            getTimeEntries(startInstant, endInstant)
+                .collect { entries ->
+                    val dayGroups = entries
+                        .groupBy { it.startTime.toLocalDateTime(tz).date }
+                        .map { (date, dayEntries) ->
+                            createDayGroup(date = date, entries = dayEntries, timeZone = tz)
+                        }
+                        .sortedByDescending { it.date }
+
+                    _uiState.update {
+                        it.copy(
+                            dayGroups = dayGroups,
+                            isLoading = false
+                        )
+                    }
                 }
         }
     }
@@ -100,63 +133,52 @@ class TimelineViewModel @Inject constructor(
     }
 
     /**
-     * Load more entries for pagination.
+     * Set selected date.
      */
-    fun loadMore() {
-        val state = _uiState.value
-        if (state.isLoadingMore || !state.hasMore) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoadingMore = true) }
-            currentOffset += pageSize
-
-            getTimelineEntries(limit = pageSize, offset = currentOffset)
-                .collect { newDayGroups ->
-                    _uiState.update { currentState ->
-                        // Merge new day groups with existing ones
-                        val mergedGroups = mergeDayGroups(currentState.dayGroups, newDayGroups)
-                        currentState.copy(
-                            dayGroups = mergedGroups,
-                            isLoadingMore = false,
-                            hasMore = newDayGroups.sumOf { it.entryCount } >= pageSize
-                        )
-                    }
-                }
+    fun setSelectedDate(date: LocalDate) {
+        val currentWeekStart = _uiState.value.weekStartDate
+        val newWeekStart = date.minus(date.dayOfWeek.ordinal, DateTimeUnit.DAY)
+        
+        _uiState.update { it.copy(selectedDate = date, showDatePicker = false) }
+        
+        // Only reload if week changed
+        if (currentWeekStart != newWeekStart) {
+            loadEntries()
         }
     }
 
     /**
-     * Merge day groups, combining entries for the same date.
+     * Navigate to today.
      */
-    private fun mergeDayGroups(existing: List<DayGroup>, new: List<DayGroup>): List<DayGroup> {
-        val groupMap = existing.associateBy { it.date }.toMutableMap()
-
-        new.forEach { newGroup ->
-            val existingGroup = groupMap[newGroup.date]
-            if (existingGroup != null) {
-                val existingEntries = existingGroup.items
-                    .mapNotNull { it as? TimelineItem.Entry }
-                    .map { it.entry }
-
-                val newEntries = newGroup.items
-                    .mapNotNull { it as? TimelineItem.Entry }
-                    .map { it.entry }
-
-                val mergedEntries = (existingEntries + newEntries)
-                    .distinctBy { it.id }
-                    .sortedByDescending { it.startTime }
-
-                groupMap[newGroup.date] = createDayGroup(
-                    date = newGroup.date,
-                    entries = mergedEntries
-                )
-            } else {
-                groupMap[newGroup.date] = newGroup
-            }
-        }
-
-        return groupMap.values.sortedByDescending { it.date }
+    fun navigateToToday() {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        setSelectedDate(today)
     }
+
+    /**
+     * Navigate by weeks.
+     */
+    fun navigateWeek(deltaWeeks: Int) {
+        val currentDate = _uiState.value.selectedDate
+        val newDate = currentDate.plus(deltaWeeks * 7, DateTimeUnit.DAY)
+        setSelectedDate(newDate)
+    }
+    
+    /**
+     * Show date picker.
+     */
+    fun showDatePicker() {
+        _uiState.update { it.copy(showDatePicker = true) }
+    }
+
+    /**
+     * Hide date picker.
+     */
+    fun hideDatePicker() {
+        _uiState.update { it.copy(showDatePicker = false) }
+    }
+    
+    // Legacy loadMore removed as we are now week-based.
 
     /**
      * Handle entry click - navigate to edit.

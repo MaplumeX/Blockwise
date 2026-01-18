@@ -1,11 +1,18 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeline
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,16 +23,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MergeType
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -35,24 +48,28 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.maplume.blockwise.core.designsystem.component.BlockwiseDatePickerDialog
 import com.maplume.blockwise.core.designsystem.component.BlockwiseEmptyState
 import com.maplume.blockwise.core.designsystem.component.LoadingIndicator
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
@@ -62,10 +79,15 @@ import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import java.time.format.TextStyle
+import java.util.Locale
 import kotlin.time.Duration.Companion.hours
 
 /**
@@ -98,7 +120,6 @@ fun TimelineScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
         onRefresh = viewModel::refresh,
-        onLoadMore = viewModel::loadMore,
         onEntryClick = viewModel::onEntryClick,
         onEntryLongPress = viewModel::onEntryLongPress,
         onExitSelectionMode = viewModel::exitSelectionMode,
@@ -112,6 +133,11 @@ fun TimelineScreen(
         onMergeConfirm = viewModel::onMergeConfirm,
         onMergeCancel = viewModel::onMergeCancel,
         onCreateFromGap = onNavigateToCreateFromGap,
+        onNavigateWeek = viewModel::navigateWeek,
+        onNavigateToToday = viewModel::navigateToToday,
+        onDateSelect = viewModel::setSelectedDate,
+        onShowDatePicker = viewModel::showDatePicker,
+        onHideDatePicker = viewModel::hideDatePicker,
         modifier = modifier
     )
 }
@@ -122,7 +148,6 @@ private fun TimelineScreenContent(
     uiState: TimelineUiState,
     snackbarHostState: SnackbarHostState,
     onRefresh: () -> Unit,
-    onLoadMore: () -> Unit,
     onEntryClick: (TimeEntry) -> Unit,
     onEntryLongPress: (TimeEntry) -> Unit,
     onExitSelectionMode: () -> Unit,
@@ -136,25 +161,15 @@ private fun TimelineScreenContent(
     onMergeConfirm: () -> Unit,
     onMergeCancel: () -> Unit,
     onCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
+    onNavigateWeek: (Int) -> Unit,
+    onNavigateToToday: () -> Unit,
+    onDateSelect: (LocalDate) -> Unit,
+    onShowDatePicker: () -> Unit,
+    onHideDatePicker: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val onCreateFromGapSafe = onCreateFromGap
     val listState = rememberLazyListState()
-
-    // Detect when to load more
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            lastVisibleItem != null &&
-                lastVisibleItem.index >= listState.layoutInfo.totalItemsCount - 5
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore && !uiState.isLoadingMore && uiState.hasMore) {
-            onLoadMore()
-        }
-    }
 
     Scaffold(
         modifier = modifier,
@@ -164,6 +179,14 @@ private fun TimelineScreenContent(
                     selectedCount = uiState.selectedEntryIds.size,
                     onClose = onExitSelectionMode,
                     onMerge = onMergeRequest
+                )
+            } else {
+                TimelineDateTopBar(
+                    weekStartDate = uiState.weekStartDate,
+                    onTitleClick = onShowDatePicker,
+                    onTodayClick = onNavigateToToday,
+                    onPreviousWeek = { onNavigateWeek(-1) },
+                    onNextWeek = { onNavigateWeek(1) }
                 )
             }
         },
@@ -187,96 +210,118 @@ private fun TimelineScreenContent(
             }
         }
     ) { paddingValues ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                LoadingIndicator()
+        Column(modifier = Modifier.padding(paddingValues)) {
+            if (!uiState.isSelectionMode) {
+                WeekStrip(
+                    weekStartDate = uiState.weekStartDate,
+                    selectedDate = uiState.selectedDate,
+                    onDateSelect = onDateSelect
+                )
             }
-        } else if (uiState.dayGroups.isEmpty()) {
-            EmptyTimelineContent(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            )
-        } else {
-            PullToRefreshBox(
-                isRefreshing = uiState.isLoading,
-                onRefresh = onRefresh,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-            ) {
-                LazyColumn(
-                    state = listState,
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    uiState.dayGroups.forEach { dayGroup ->
-                        // Sticky header for date
-                        stickyHeader(key = "header_${dayGroup.date}") {
-                            StickyDateGroupHeader(
-                                date = dayGroup.date,
-                                totalMinutes = dayGroup.totalMinutes
-                            )
-                        }
 
-                        items(
-                            items = dayGroup.items,
-                            key = { item ->
-                                when (item) {
-                                    is TimelineItem.Entry -> "entry-${item.entry.id}"
-                                    is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
-                                }
-                            }
-                        ) { item ->
-                            when (item) {
-                                is TimelineItem.Entry -> {
-                                    val entry = item.entry
-                                    TimeEntryItem(
-                                        entry = entry,
-                                        isSelected = entry.id in uiState.selectedEntryIds,
-                                        isSelectionMode = uiState.isSelectionMode,
-                                        onClick = { onEntryClick(entry) },
-                                        onLongClick = { onEntryLongPress(entry) },
-                                        modifier = Modifier.animateItem()
-                                    )
-                                }
-                                is TimelineItem.UntrackedGap -> {
-                                    UntrackedGapItem(
-                                        startTime = item.startTime,
-                                        endTime = item.endTime,
-                                        onClick = {
-                                            onCreateFromGapSafe(item.startTime, item.endTime)
-                                        },
-                                        modifier = Modifier.animateItem()
-                                    )
-                                }
+            AnimatedContent(
+                targetState = uiState.weekStartDate,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInHorizontally { it } + fadeIn() togetherWith
+                            slideOutHorizontally { -it } + fadeOut()
+                    } else {
+                        slideInHorizontally { -it } + fadeIn() togetherWith
+                            slideOutHorizontally { it } + fadeOut()
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = { /* Handled by updates */ }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            if (dragAmount > 50) {
+                                onNavigateWeek(-1)
+                            } else if (dragAmount < -50) {
+                                onNavigateWeek(1)
                             }
                         }
                     }
+            ) { _ ->
+                if (uiState.isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LoadingIndicator()
+                    }
+                } else if (uiState.dayGroups.isEmpty()) {
+                    EmptyTimelineContent(
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    PullToRefreshBox(
+                        isRefreshing = false,
+                        onRefresh = onRefresh,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        LazyColumn(
+                            state = listState,
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(0.dp)
+                        ) {
+                            uiState.dayGroups.forEach { dayGroup ->
+                                stickyHeader(key = "header_${dayGroup.date}") {
+                                    StickyDateGroupHeader(
+                                        date = dayGroup.date,
+                                        totalMinutes = dayGroup.totalMinutes
+                                    )
+                                }
 
-                    // Loading more indicator
-                    if (uiState.isLoadingMore) {
-                        item {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.padding(8.dp)
-                                )
+                                items(
+                                    items = dayGroup.items,
+                                    key = { item ->
+                                        when (item) {
+                                            is TimelineItem.Entry -> "entry-${item.entry.id}"
+                                            is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
+                                        }
+                                    }
+                                ) { item ->
+                                    when (item) {
+                                        is TimelineItem.Entry -> {
+                                            val entry = item.entry
+                                            TimeEntryItem(
+                                                entry = entry,
+                                                isSelected = entry.id in uiState.selectedEntryIds,
+                                                isSelectionMode = uiState.isSelectionMode,
+                                                onClick = { onEntryClick(entry) },
+                                                onLongClick = { onEntryLongPress(entry) },
+                                                modifier = Modifier.animateItem()
+                                            )
+                                        }
+                                        is TimelineItem.UntrackedGap -> {
+                                            UntrackedGapItem(
+                                                startTime = item.startTime,
+                                                endTime = item.endTime,
+                                                onClick = {
+                                                    onCreateFromGapSafe(item.startTime, item.endTime)
+                                                },
+                                                modifier = Modifier.animateItem()
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
+        // Date Picker
+        BlockwiseDatePickerDialog(
+            visible = uiState.showDatePicker,
+            onDismiss = onHideDatePicker,
+            onDateSelected = onDateSelect,
+            initialDate = uiState.selectedDate
+        )
 
         // Delete confirmation dialog
         if (uiState.entryToDelete != null) {
@@ -306,6 +351,128 @@ private fun TimelineScreenContent(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimelineDateTopBar(
+    weekStartDate: LocalDate,
+    onTitleClick: () -> Unit,
+    onTodayClick: () -> Unit,
+    onPreviousWeek: () -> Unit,
+    onNextWeek: () -> Unit
+) {
+    val weekEndDate = weekStartDate.plus(6, DateTimeUnit.DAY)
+    val title = if (weekStartDate.monthNumber == weekEndDate.monthNumber) {
+        "${weekStartDate.year}年${weekStartDate.monthNumber}月${weekStartDate.dayOfMonth}-${weekEndDate.dayOfMonth}日"
+    } else {
+        "${weekStartDate.monthNumber}月${weekStartDate.dayOfMonth}日-${weekEndDate.monthNumber}月${weekEndDate.dayOfMonth}日"
+    }
+
+    TopAppBar(
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onTitleClick)
+                    .padding(8.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        },
+        navigationIcon = {
+             IconButton(onClick = onPreviousWeek) {
+                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上一周")
+             }
+        },
+        actions = {
+            IconButton(onClick = onNextWeek) {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下一周")
+            }
+            IconButton(onClick = onTodayClick) {
+                Icon(Icons.Default.Today, contentDescription = "今天")
+            }
+        }
+    )
+}
+
+@Composable
+private fun WeekStrip(
+    weekStartDate: LocalDate,
+    selectedDate: LocalDate,
+    onDateSelect: (LocalDate) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        (0..6).forEach { dayOffset ->
+            val date = weekStartDate.plus(dayOffset, DateTimeUnit.DAY)
+            val isSelected = date == selectedDate
+            val isToday = date == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+            WeekDayItem(
+                date = date,
+                isSelected = isSelected,
+                isToday = isToday,
+                onClick = { onDateSelect(date) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeekDayItem(
+    date: LocalDate,
+    isSelected: Boolean,
+    isToday: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent
+    val contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val todayIndicatorColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(backgroundColor)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp, horizontal = 4.dp)
+            .width(40.dp)
+    ) {
+        Text(
+            text = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+            style = MaterialTheme.typography.labelSmall,
+            color = contentColor.copy(alpha = 0.8f)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = date.dayOfMonth.toString(),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color = contentColor
+        )
+        if (isToday) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .background(todayIndicatorColor, CircleShape)
+            )
+        } else {
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
 
 /**
  * Top bar for selection mode.
@@ -530,7 +697,6 @@ private fun TimelineScreenPreview() {
             ),
             snackbarHostState = SnackbarHostState(),
             onRefresh = {},
-            onLoadMore = {},
             onEntryClick = {},
             onEntryLongPress = {},
             onExitSelectionMode = {},
@@ -543,7 +709,12 @@ private fun TimelineScreenPreview() {
             onMergeRequest = {},
             onMergeConfirm = {},
             onMergeCancel = {},
-            onCreateFromGap = { _, _ -> }
+            onCreateFromGap = { _, _ -> },
+            onNavigateWeek = {},
+            onNavigateToToday = {},
+            onDateSelect = {},
+            onShowDatePicker = {},
+            onHideDatePicker = {}
         )
     }
 }
@@ -559,7 +730,6 @@ private fun EmptyTimelinePreview() {
             ),
             snackbarHostState = SnackbarHostState(),
             onRefresh = {},
-            onLoadMore = {},
             onEntryClick = {},
             onEntryLongPress = {},
             onExitSelectionMode = {},
@@ -572,7 +742,12 @@ private fun EmptyTimelinePreview() {
             onMergeRequest = {},
             onMergeConfirm = {},
             onMergeCancel = {},
-            onCreateFromGap = { _, _ -> }
+            onCreateFromGap = { _, _ -> },
+            onNavigateWeek = {},
+            onNavigateToToday = {},
+            onDateSelect = {},
+            onShowDatePicker = {},
+            onHideDatePicker = {}
         )
     }
 }

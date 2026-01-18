@@ -11,7 +11,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertTrue
+
 import org.junit.jupiter.api.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -44,11 +44,13 @@ class TimelineUntrackedGapTest {
         )
 
         val gap = items.filterIsInstance<TimelineItem.UntrackedGap>()
-        assertEquals(2, gap.size)
+        assertEquals(3, gap.size)
         assertEquals(instant(date, LocalTime(0, 0)), gap[0].startTime)
         assertEquals(instant(date, LocalTime(10, 0)), gap[0].endTime)
         assertEquals(instant(date, LocalTime(10, 10)), gap[1].startTime)
         assertEquals(instant(date, LocalTime(10, 11)), gap[1].endTime)
+        assertEquals(instant(date, LocalTime(10, 20)), gap[2].startTime)
+        assertEquals(instant(LocalDate(2026, 1, 2), LocalTime(0, 0)), gap[2].endTime)
     }
 
     @Test
@@ -74,10 +76,11 @@ class TimelineUntrackedGapTest {
         )
 
         val gaps = items.filterIsInstance<TimelineItem.UntrackedGap>()
-        assertTrue(gaps.isNotEmpty())
-        assertEquals(1, gaps.size)
+        assertEquals(2, gaps.size)
         assertEquals(instant(date, LocalTime(0, 0)), gaps[0].startTime)
         assertEquals(instant(date, LocalTime(10, 0)), gaps[0].endTime)
+        assertEquals(instant(date, LocalTime(10, 40)), gaps[1].startTime)
+        assertEquals(instant(LocalDate(2026, 1, 2), LocalTime(0, 0)), gaps[1].endTime)
     }
 
     @Test
@@ -164,6 +167,6 @@ class TimelineUntrackedGapTest {
         val group = groups.first()
         assertEquals(date, group.date)
         assertEquals(2, group.entryCount)
-        assertTrue(group.items.any { it is TimelineItem.UntrackedGap })
+        org.junit.jupiter.api.Assertions.assertTrue(group.items.any { it is TimelineItem.UntrackedGap })
     }
 }
