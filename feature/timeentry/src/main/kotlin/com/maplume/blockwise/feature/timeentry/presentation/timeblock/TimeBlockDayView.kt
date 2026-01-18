@@ -1,7 +1,6 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeblock
 
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -51,11 +50,23 @@ fun TimeBlockDayView(
 ) {
     val scrollState = rememberScrollState()
     val timeAxisWidth = 48.dp
+
     val fiveMinuteStep = 5
-    val minutesPerDay = 24 * 60
+    val minutesPerHour = 60
+    val hoursPerDay = 24
+    val columnsPerHour = minutesPerHour / fiveMinuteStep
+    val minutesPerDay = hoursPerDay * minutesPerHour
 
     fun snapMinutesToNearestGrid(minutes: Int, gridMinutes: Int): Int {
         return ((minutes + gridMinutes / 2) / gridMinutes) * gridMinutes
+    }
+
+    fun floorToGrid(minutes: Int, gridMinutes: Int): Int {
+        return (minutes / gridMinutes) * gridMinutes
+    }
+
+    fun ceilToGrid(minutes: Int, gridMinutes: Int): Int {
+        return ((minutes + gridMinutes - 1) / gridMinutes) * gridMinutes
     }
 
     fun minutesToLocalTime(minutes: Int): LocalTime {
@@ -66,20 +77,19 @@ fun TimeBlockDayView(
         return LocalTime(hours, mins)
     }
 
-    fun yToSnappedMinutes(yPx: Float, heightPx: Float): Int {
-        val minutesPerPx = minutesPerDay.toFloat() / heightPx
-        val rawMinutes = (yPx * minutesPerPx).roundToInt()
+    fun offsetToSnappedMinutes(offset: Offset, gridWidthPx: Float, hourHeightPx: Float): Int {
+        val hourIndex = (offset.y / hourHeightPx).toInt().coerceIn(0, hoursPerDay - 1)
+        val minuteInHour = ((offset.x / gridWidthPx) * minutesPerHour.toFloat())
+            .roundToInt()
+            .coerceIn(0, minutesPerHour)
+        val rawMinutes = hourIndex * minutesPerHour + minuteInHour
         return snapMinutesToNearestGrid(rawMinutes, fiveMinuteStep)
             .coerceIn(0, minutesPerDay)
     }
 
-    fun minutesToY(minutes: Int, heightPx: Float): Float {
-        return (minutes.toFloat() / minutesPerDay) * heightPx
-    }
-
     var rangeSelection by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    var isRangeSelectionActive by remember { mutableStateOf(false) }
 
-    // Calculate positioned entries with overlap handling
     val positionedEntries = remember(entries) {
         calculatePositionedEntries(entries)
     }
@@ -95,22 +105,21 @@ fun TimeBlockDayView(
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
-            // Time axis
             TimeAxis(
                 hourHeight = hourHeight,
                 modifier = Modifier.width(timeAxisWidth)
             )
 
-            // Time blocks area
             BoxWithConstraints(
                 modifier = Modifier
                     .weight(1f)
-                    .height(hourHeight * 24)
+                    .height(hourHeight * hoursPerDay)
                     .drawBehind {
                         val hourPx = hourHeight.toPx()
                         val width = size.width
+                        val cellWidth = width / columnsPerHour
 
-                        for (h in 0 until 24) {
+                        for (h in 0 until hoursPerDay) {
                             val y = h * hourPx
                             drawLine(
                                 color = gridColor,
@@ -118,17 +127,6 @@ fun TimeBlockDayView(
                                 end = Offset(width, y),
                                 strokeWidth = 1.dp.toPx()
                             )
-
-                            val fiveMinPx = hourPx / 12
-                            for (m in 1 until 12) {
-                                val subY = y + m * fiveMinPx
-                                drawLine(
-                                    color = subGridColor,
-                                    start = Offset(0f, subY),
-                                    end = Offset(width, subY),
-                                    strokeWidth = 0.5.dp.toPx()
-                                )
-                            }
                         }
                         drawLine(
                             color = gridColor,
@@ -137,6 +135,16 @@ fun TimeBlockDayView(
                             strokeWidth = 1.dp.toPx()
                         )
 
+                        for (c in 1 until columnsPerHour) {
+                            val x = c * cellWidth
+                            drawLine(
+                                color = subGridColor,
+                                start = Offset(x, 0f),
+                                end = Offset(x, size.height),
+                                strokeWidth = 0.5.dp.toPx()
+                            )
+                        }
+
                         val selection = rangeSelection
                         if (selection != null) {
                             val (a, b) = selection
@@ -144,42 +152,105 @@ fun TimeBlockDayView(
                             val end = maxOf(a, b)
 
                             if (end > start) {
-                                val topPx = minutesToY(start, size.height)
-                                val bottomPx = minutesToY(end, size.height)
+                                val startHour = (start / minutesPerHour).coerceIn(0, hoursPerDay - 1)
+                                val endHour = ((end - 1) / minutesPerHour).coerceIn(0, hoursPerDay - 1)
 
-                                drawRect(
-                                    color = rangeSelectionColor,
-                                    topLeft = Offset(0f, topPx),
-                                    size = Size(width, bottomPx - topPx)
-                                )
+                                for (h in startHour..endHour) {
+                                    val segStart = maxOf(start, h * minutesPerHour)
+                                    val segEnd = minOf(end, (h + 1) * minutesPerHour)
+                                    if (segEnd > segStart) {
+                                        val startInHour = segStart - h * minutesPerHour
+                                        val endInHour = segEnd - h * minutesPerHour
+
+                                        val snappedStartInHour = floorToGrid(startInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+                                        val snappedEndInHour = ceilToGrid(endInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+
+                                        if (snappedEndInHour > snappedStartInHour) {
+                                            val x = (snappedStartInHour / fiveMinuteStep) * cellWidth
+                                            val w = ((snappedEndInHour - snappedStartInHour) / fiveMinuteStep) * cellWidth
+                                            val y = h * hourPx
+                                            drawRect(
+                                                color = rangeSelectionColor,
+                                                topLeft = Offset(x, y),
+                                                size = Size(w, hourPx)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { offset ->
-                                val minutes = yToSnappedMinutes(offset.y, size.height.toFloat())
-                                val snapped = minutes.coerceIn(0, minutesPerDay - fiveMinuteStep)
-                                onEmptySlotClick(minutesToLocalTime(snapped))
+                    .pointerInput(positionedEntries, hourHeight) {
+                        fun isPointerOnEntry(offset: Offset): Boolean {
+                            val hourPx = hourHeight.toPx()
+                            val widthPx = size.width
+                            if (hourPx <= 0f || widthPx <= 0f) return false
+
+                            val hourIndex = (offset.y / hourPx).toInt().coerceIn(0, hoursPerDay - 1)
+
+                            positionedEntries.forEach { positioned ->
+                                val entry = positioned.entry
+                                val startMinutes = getMinutesOfDay(entry.startTime)
+                                val endMinutes = getMinutesOfDay(entry.endTime)
+                                if (endMinutes <= startMinutes) return@forEach
+
+                                val startHour = startMinutes / minutesPerHour
+                                val endHour = (endMinutes - 1) / minutesPerHour
+                                if (hourIndex !in startHour..endHour) return@forEach
+
+                                val lanes = positioned.totalColumns.coerceAtLeast(1)
+                                val laneHeightPx = hourPx / lanes
+                                val laneTopPx = hourIndex * hourPx + positioned.columnIndex * laneHeightPx
+                                val laneBottomPx = laneTopPx + laneHeightPx
+                                if (offset.y < laneTopPx || offset.y > laneBottomPx) return@forEach
+
+                                val segStart = maxOf(startMinutes, hourIndex * minutesPerHour)
+                                val segEnd = minOf(endMinutes, (hourIndex + 1) * minutesPerHour)
+                                if (segEnd <= segStart) return@forEach
+
+                                val startInHour = segStart - hourIndex * minutesPerHour
+                                val endInHour = segEnd - hourIndex * minutesPerHour
+
+                                val snappedStartInHour = floorToGrid(startInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+                                val snappedEndInHour = ceilToGrid(endInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+                                if (snappedEndInHour <= snappedStartInHour) return@forEach
+
+                        val cellWidthPx = widthPx / columnsPerHour.toFloat()
+                        val xStart = (snappedStartInHour / fiveMinuteStep) * cellWidthPx
+                        val xEnd = (snappedEndInHour / fiveMinuteStep) * cellWidthPx
+
+                        if (offset.x in xStart..xEnd) {
+                                    return true
+                                }
                             }
-                        )
-                    }
-                    .pointerInput(Unit) {
+
+                            return false
+                        }
+
                         detectDragGesturesAfterLongPress(
                             onDragStart = { offset ->
-                                val startMinutes = yToSnappedMinutes(offset.y, size.height.toFloat())
+                                if (isPointerOnEntry(offset)) {
+                                    isRangeSelectionActive = false
+                                    rangeSelection = null
+                                    return@detectDragGesturesAfterLongPress
+                                }
+
+                                isRangeSelectionActive = true
+                                val startMinutes = offsetToSnappedMinutes(offset, size.width.toFloat(), hourHeight.toPx())
                                 rangeSelection = startMinutes to startMinutes
                             },
                             onDrag = { change, _ ->
+                                if (!isRangeSelectionActive) return@detectDragGesturesAfterLongPress
                                 change.consume()
-                                val current = rangeSelection
-                                if (current != null) {
-                                    val (start, _) = current
-                                    val endMinutes = yToSnappedMinutes(change.position.y, size.height.toFloat())
-                                    rangeSelection = start to endMinutes
-                                }
+                                val current = rangeSelection ?: return@detectDragGesturesAfterLongPress
+                                val (start, _) = current
+                                val endMinutes = offsetToSnappedMinutes(change.position, size.width.toFloat(), hourHeight.toPx())
+                                rangeSelection = start to endMinutes
                             },
                             onDragEnd = {
+                                if (!isRangeSelectionActive) return@detectDragGesturesAfterLongPress
+                                isRangeSelectionActive = false
+
                                 val selection = rangeSelection
                                 rangeSelection = null
                                 if (selection != null) {
@@ -195,63 +266,77 @@ fun TimeBlockDayView(
                                 }
                             },
                             onDragCancel = {
+                                isRangeSelectionActive = false
                                 rangeSelection = null
                             }
                         )
                     }
             ) {
-                val blockAreaWidth = maxWidth
+                val gridWidth = maxWidth
+                val cellWidth = gridWidth / columnsPerHour.toFloat()
 
                 positionedEntries.forEach { positioned ->
                     val entry = positioned.entry
                     val startMinutes = getMinutesOfDay(entry.startTime)
                     val endMinutes = getMinutesOfDay(entry.endTime)
+                    if (endMinutes <= startMinutes) return@forEach
 
-                    val startHour = startMinutes / 60
-                    val endHour = (endMinutes - 1) / 60
+                    val startHour = startMinutes / minutesPerHour
+                    val endHour = (endMinutes - 1) / minutesPerHour
+
+                    val lanes = positioned.totalColumns.coerceAtLeast(1)
+                    val laneHeight = hourHeight / lanes.toFloat()
+                    val laneTopOffset = laneHeight * positioned.columnIndex.toFloat()
+
+                    val isSelected = selectedEntryId == entry.id
 
                     for (h in startHour..endHour) {
-                        val segStart = maxOf(startMinutes, h * 60)
-                        val segEnd = minOf(endMinutes, (h + 1) * 60)
+                        val segStart = maxOf(startMinutes, h * minutesPerHour)
+                        val segEnd = minOf(endMinutes, (h + 1) * minutesPerHour)
+                        if (segEnd <= segStart) continue
 
-                        if (segEnd > segStart) {
-                            val topOffset = (segStart * hourHeight.value / 60).dp
-                            val segmentHeight = ((segEnd - segStart) * hourHeight.value / 60).dp
-                                .coerceAtLeast((hourHeight.value / 60f * fiveMinuteStep).dp)
+                        val startInHour = segStart - h * minutesPerHour
+                        val endInHour = segEnd - h * minutesPerHour
 
-                            val isFirst = (segStart == startMinutes)
-                            val isLast = (segEnd == endMinutes)
+                        val snappedStartInHour = floorToGrid(startInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+                        val snappedEndInHour = ceilToGrid(endInHour, fiveMinuteStep).coerceIn(0, minutesPerHour)
+                        if (snappedEndInHour <= snappedStartInHour) continue
 
-                            val shape = RoundedCornerShape(
-                                topStart = if (isFirst) 4.dp else 0.dp,
-                                topEnd = if (isFirst) 4.dp else 0.dp,
-                                bottomStart = if (isLast) 4.dp else 0.dp,
-                                bottomEnd = if (isLast) 4.dp else 0.dp
-                            )
+                        val xOffset = cellWidth * (snappedStartInHour.toFloat() / fiveMinuteStep)
+                        val segmentWidth = cellWidth * ((snappedEndInHour - snappedStartInHour).toFloat() / fiveMinuteStep)
+                        val minSegmentWidth = cellWidth
 
-                            // Calculate width based on overlap
-                            val columnWidth = blockAreaWidth / positioned.totalColumns
-                            val leftOffset = columnWidth * positioned.columnIndex
+                        val yOffset = (hourHeight * h.toFloat()) + laneTopOffset
+                        val segmentHeight = (laneHeight - 2.dp).coerceAtLeast(8.dp)
 
-                            val isSelected = selectedEntryId == entry.id
+                        val isFirstSlice = segStart == startMinutes
+                        val isLastSlice = segEnd == endMinutes
 
-                            TimeBlock(
-                                entry = entry,
-                                onClick = { onEntryClick(entry) },
-                                onLongClick = { onEntryLongClick(entry) },
-                                showDetails = segmentHeight >= 20.dp,
-                                shape = shape,
-                                modifier = Modifier
-                                    .offset(x = leftOffset, y = topOffset)
-                                    .width(columnWidth - 2.dp)
-                                    .height(segmentHeight)
-                                    .drawBehind {
-                                        if (isSelected) {
-                                            drawRect(color = selectedEntryOverlayColor)
-                                        }
+                        val shape = RoundedCornerShape(
+                            topStart = if (isFirstSlice) 4.dp else 0.dp,
+                            bottomStart = if (isFirstSlice) 4.dp else 0.dp,
+                            topEnd = if (isLastSlice) 4.dp else 0.dp,
+                            bottomEnd = if (isLastSlice) 4.dp else 0.dp
+                        )
+
+                        val showDetails = (snappedEndInHour - snappedStartInHour) >= 10
+
+                        TimeBlock(
+                            entry = entry,
+                            onClick = { onEntryClick(entry) },
+                            onLongClick = { onEntryLongClick(entry) },
+                            showDetails = showDetails,
+                            shape = shape,
+                            modifier = Modifier
+                                .offset(x = xOffset, y = yOffset)
+                                .width((segmentWidth.coerceAtLeast(minSegmentWidth) - 2.dp).coerceAtLeast(1.dp))
+                                .height(segmentHeight)
+                                .drawBehind {
+                                    if (isSelected) {
+                                        drawRect(color = selectedEntryOverlayColor)
                                     }
-                            )
-                        }
+                                }
+                        )
                     }
                 }
             }
@@ -259,9 +344,6 @@ fun TimeBlockDayView(
     }
 }
 
-/**
- * Time axis showing hours.
- */
 @Composable
 private fun TimeAxis(
     hourHeight: Dp,
@@ -286,30 +368,21 @@ private fun TimeAxis(
     }
 }
 
-/**
- * Data class for positioned entry with overlap information.
- */
 data class PositionedEntry(
     val entry: TimeEntry,
     val columnIndex: Int,
     val totalColumns: Int
 )
 
-/**
- * Calculate positioned entries with overlap handling.
- * Entries that overlap are placed in adjacent columns.
- */
 private fun calculatePositionedEntries(entries: List<TimeEntry>): List<PositionedEntry> {
     if (entries.isEmpty()) return emptyList()
 
     val sortedEntries = entries.sortedBy { it.startTime }
     val result = mutableListOf<PositionedEntry>()
 
-    // Group overlapping entries
     val groups = mutableListOf<MutableList<TimeEntry>>()
 
     sortedEntries.forEach { entry ->
-        // Find a group that this entry overlaps with
         val overlappingGroup = groups.find { group ->
             group.any { existing -> entriesOverlap(existing, entry) }
         }
@@ -321,31 +394,27 @@ private fun calculatePositionedEntries(entries: List<TimeEntry>): List<Positione
         }
     }
 
-    // Assign columns within each group
     groups.forEach { group ->
         if (group.size == 1) {
             result.add(PositionedEntry(group[0], 0, 1))
         } else {
-            // Sort by start time within group
             val sortedGroup = group.sortedBy { it.startTime }
             val columns = mutableListOf<MutableList<TimeEntry>>()
 
             sortedGroup.forEach { entry ->
-                // Find first column where this entry doesn't overlap
                 val columnIndex = columns.indexOfFirst { column ->
                     column.none { existing -> entriesOverlap(existing, entry) }
                 }
 
                 if (columnIndex >= 0) {
                     columns[columnIndex].add(entry)
-                    result.add(PositionedEntry(entry, columnIndex, 0)) // totalColumns updated later
+                    result.add(PositionedEntry(entry, columnIndex, 0))
                 } else {
                     columns.add(mutableListOf(entry))
                     result.add(PositionedEntry(entry, columns.size - 1, 0))
                 }
             }
 
-            // Update totalColumns for all entries in this group
             val totalColumns = columns.size
             group.forEach { entry ->
                 val index = result.indexOfFirst { it.entry.id == entry.id }
@@ -359,16 +428,10 @@ private fun calculatePositionedEntries(entries: List<TimeEntry>): List<Positione
     return result
 }
 
-/**
- * Check if two entries overlap in time.
- */
 private fun entriesOverlap(a: TimeEntry, b: TimeEntry): Boolean {
     return a.startTime < b.endTime && b.startTime < a.endTime
 }
 
-/**
- * Get minutes of day from an Instant.
- */
 private fun getMinutesOfDay(instant: kotlinx.datetime.Instant): Int {
     val local = instant.toLocalDateTime(TimeZone.currentSystemDefault())
     return local.hour * 60 + local.minute

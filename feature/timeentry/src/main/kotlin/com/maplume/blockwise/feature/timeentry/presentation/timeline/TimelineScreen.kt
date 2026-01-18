@@ -264,18 +264,24 @@ private fun TimelineScreenContent(
                 },
                 modifier = Modifier
                     .weight(1f)
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = { /* Handled by updates */ }
-                        ) { change, dragAmount ->
-                            change.consume()
-                            if (dragAmount > 50) {
-                                onNavigateWeek(-1)
-                            } else if (dragAmount < -50) {
-                                onNavigateWeek(1)
+                    .then(
+                        if (viewMode == TimelineViewMode.LIST) {
+                            Modifier.pointerInput(Unit) {
+                                detectHorizontalDragGestures(
+                                    onDragEnd = { /* Handled by updates */ }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    if (dragAmount > 50) {
+                                        onNavigateWeek(-1)
+                                    } else if (dragAmount < -50) {
+                                        onNavigateWeek(1)
+                                    }
+                                }
                             }
+                        } else {
+                            Modifier
                         }
-                    }
+                    )
             ) { _ ->
                 if (uiState.isLoading) {
                     Box(
