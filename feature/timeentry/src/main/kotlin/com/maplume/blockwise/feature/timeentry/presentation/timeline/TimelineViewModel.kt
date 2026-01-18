@@ -10,6 +10,7 @@ import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.MergeTime
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.SplitTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
+import androidx.compose.ui.geometry.Offset
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
@@ -44,11 +46,12 @@ data class TimelineUiState(
     val error: String? = null,
     val selectedEntryIds: Set<Long> = emptySet(),
     val isSelectionMode: Boolean = false,
+    val contextMenu: TimelineContextMenuState? = null,
     val entryToDelete: TimeEntry? = null,
     val entryToSplit: TimeEntry? = null,
     val showMergeConfirmation: Boolean = false,
     val showDatePicker: Boolean = false
-) {
+) { 
     val weekStartDate: LocalDate
         get() {
             val dayOfWeek = selectedDate.dayOfWeek
@@ -67,6 +70,11 @@ sealed class TimelineEvent {
     data object SplitSuccess : TimelineEvent()
     data object MergeSuccess : TimelineEvent()
 }
+
+data class TimelineContextMenuState(
+    val entryId: Long,
+    val tapOffset: Offset
+)
 
 /**
  * ViewModel for the timeline screen.
@@ -183,24 +191,47 @@ class TimelineViewModel @Inject constructor(
     /**
      * Handle entry click - navigate to edit.
      */
-    fun onEntryClick(entry: TimeEntry) {
+    fun onEntryClick(entry: TimeEntry, tapOffset: Offset) {
         if (_uiState.value.isSelectionMode) {
             toggleEntrySelection(entry.id)
-        } else {
-            viewModelScope.launch {
-                _events.emit(TimelineEvent.NavigateToEdit(entry.id))
-            }
+            return
         }
+
+        _uiState.update { it.copy(contextMenu = TimelineContextMenuState(entryId = entry.id, tapOffset = tapOffset)) }
+    }
+
+    fun dismissContextMenu() {
+        _uiState.update { it.copy(contextMenu = null) }
+    }
+
+    fun onContextMenuEdit(entryId: Long) {
+        dismissContextMenu()
+        viewModelScope.launch {
+            _events.emit(TimelineEvent.NavigateToEdit(entryId))
+        }
+    }
+
+    fun onContextMenuDelete(entry: TimeEntry) {
+        dismissContextMenu()
+        onDeleteRequest(entry)
+    }
+
+    fun onContextMenuSplit(entry: TimeEntry) {
+        dismissContextMenu()
+        onSplitRequest(entry)
     }
 
     /**
      * Handle entry long press - enter selection mode or show context menu.
      */
     fun onEntryLongPress(entry: TimeEntry) {
-        _uiState.update { it.copy(
-            isSelectionMode = true,
-            selectedEntryIds = setOf(entry.id)
-        )}
+        dismissContextMenu()
+        _uiState.update {
+            it.copy(
+                isSelectionMode = true,
+                selectedEntryIds = setOf(entry.id)
+            )
+        }
     }
 
     /**
@@ -225,10 +256,13 @@ class TimelineViewModel @Inject constructor(
      * Exit selection mode.
      */
     fun exitSelectionMode() {
-        _uiState.update { it.copy(
-            isSelectionMode = false,
-            selectedEntryIds = emptySet()
-        )}
+        dismissContextMenu()
+        _uiState.update {
+            it.copy(
+                isSelectionMode = false,
+                selectedEntryIds = emptySet()
+            )
+        }
     }
 
     /**

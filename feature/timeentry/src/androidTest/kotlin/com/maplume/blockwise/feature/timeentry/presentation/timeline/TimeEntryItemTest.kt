@@ -70,7 +70,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -94,7 +99,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -116,7 +126,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -138,7 +153,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -159,10 +179,15 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = { clicked = true },
+                    onClick = { _ -> clicked = true },
                     onLongClick = {}
                 )
             }
@@ -184,10 +209,15 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    onClick = { _ -> },
                     onLongClick = { longClicked = true }
                 )
             }
@@ -214,7 +244,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -236,7 +271,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -264,7 +304,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -293,7 +338,12 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    onClick = {},
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }
@@ -314,10 +364,15 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
+                    isContextMenuVisible = false,
+                    onDismissContextMenu = {},
+                    onEditClick = {},
+                    onDeleteClick = {},
+                    onSplitClick = {},
                     entry = entry,
                     isSelected = true,
                     isSelectionMode = true,
-                    onClick = {},
+                    onClick = { _ -> },
                     onLongClick = {}
                 )
             }

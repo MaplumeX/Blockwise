@@ -4,6 +4,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,25 +20,41 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
@@ -43,21 +62,51 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.max
+import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.hours
 
 /**
  * Time entry item component for the timeline list.
  */
+private class TapOffsetPopupPositionProvider(
+    private val tapOffset: Offset
+) : PopupPositionProvider {
+
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val rawX = tapOffset.x.roundToInt()
+        val rawY = tapOffset.y.roundToInt()
+
+        val maxX = max(0, windowSize.width - popupContentSize.width)
+        val maxY = max(0, windowSize.height - popupContentSize.height)
+
+        val x = rawX.coerceIn(0, maxX)
+        val y = rawY.coerceIn(0, maxY)
+
+        return IntOffset(x, y)
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TimeEntryItem(
     entry: TimeEntry,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    onClick: () -> Unit,
+    isContextMenuVisible: Boolean,
+    onDismissContextMenu: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onSplitClick: () -> Unit,
+    onClick: (tapOffset: Offset) -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
-) {
+) { 
     val axisWidth = 32.dp
     val nodeSize = 14.dp
     val lineWidth = 2.dp
@@ -99,16 +148,24 @@ fun TimeEntryItem(
         }
 
         // Card Content
-        Card(
-            modifier = Modifier
-                .padding(start = axisWidth)
-                .padding(bottom = 8.dp) // Spacing between items
-                .fillMaxWidth()
-                .testTag("timeEntryItem-${entry.id}")
-                .combinedClickable(
-                    onClick = onClick,
-                    onLongClick = onLongClick
-                ),
+        var lastTapOffset by remember { mutableStateOf(Offset.Zero) }
+
+        Box(modifier = Modifier.padding(start = axisWidth, bottom = 8.dp)) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("timeEntryItem-${entry.id}")
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            lastTapOffset = down.position
+                            waitForUpOrCancellation()
+                        }
+                    }
+                    .combinedClickable(
+                        onClick = { onClick(lastTapOffset) },
+                        onLongClick = onLongClick
+                    ),
             shape = RoundedCornerShape(12.dp),
             colors = CardDefaults.cardColors(
                 containerColor = if (isSelected) {
@@ -121,16 +178,68 @@ fun TimeEntryItem(
                 defaultElevation = if (isSelected) 4.dp else 1.dp
             )
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Main Info Column
-                Column(
-                    modifier = Modifier.weight(1f)
+            Box {
+                if (isContextMenuVisible) {
+                    val positionProvider = remember(lastTapOffset) {
+                        TapOffsetPopupPositionProvider(tapOffset = lastTapOffset)
+                    }
+
+                    Popup(
+                        popupPositionProvider = positionProvider,
+                        onDismissRequest = onDismissContextMenu,
+                        properties = PopupProperties(focusable = true)
+                    ) {
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                                DropdownMenuItem(
+                                    text = { Text("编辑") },
+                                    onClick = onEditClick,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Edit,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("删除") },
+                                    onClick = onDeleteClick,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("拆分") },
+                                    onClick = onSplitClick,
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Default.CallSplit,
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Main Info Column
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
                     // Header: Title + Activity Type
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -210,6 +319,8 @@ fun TimeEntryItem(
             }
         }
     }
+}
+}
 }
 
 /**
@@ -316,7 +427,12 @@ private fun TimeEntryItemPreview() {
             ),
             isSelected = false,
             isSelectionMode = false,
-            onClick = {},
+            isContextMenuVisible = false,
+            onDismissContextMenu = {},
+            onEditClick = {},
+            onDeleteClick = {},
+            onSplitClick = {},
+            onClick = { _ -> },
             onLongClick = {}
         )
     }
@@ -339,7 +455,12 @@ private fun TimeEntryItemSelectedPreview() {
             ),
             isSelected = true,
             isSelectionMode = true,
-            onClick = {},
+            isContextMenuVisible = false,
+            onDismissContextMenu = {},
+            onEditClick = {},
+            onDeleteClick = {},
+            onSplitClick = {},
+            onClick = { _ -> },
             onLongClick = {}
         )
     }

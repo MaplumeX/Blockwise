@@ -62,6 +62,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -123,10 +124,12 @@ fun TimelineScreen(
         onEntryClick = viewModel::onEntryClick,
         onEntryLongPress = viewModel::onEntryLongPress,
         onExitSelectionMode = viewModel::exitSelectionMode,
-        onDeleteRequest = viewModel::onDeleteRequest,
+        onDismissContextMenu = viewModel::dismissContextMenu,
+        onContextMenuEdit = viewModel::onContextMenuEdit,
+        onContextMenuDelete = viewModel::onContextMenuDelete,
+        onContextMenuSplit = viewModel::onContextMenuSplit,
         onDeleteConfirm = viewModel::onDeleteConfirm,
         onDeleteCancel = viewModel::onDeleteCancel,
-        onSplitRequest = viewModel::onSplitRequest,
         onSplitConfirm = viewModel::onSplitConfirm,
         onSplitCancel = viewModel::onSplitCancel,
         onMergeRequest = viewModel::onMergeRequest,
@@ -148,13 +151,15 @@ private fun TimelineScreenContent(
     uiState: TimelineUiState,
     snackbarHostState: SnackbarHostState,
     onRefresh: () -> Unit,
-    onEntryClick: (TimeEntry) -> Unit,
+    onEntryClick: (TimeEntry, Offset) -> Unit,
     onEntryLongPress: (TimeEntry) -> Unit,
     onExitSelectionMode: () -> Unit,
-    onDeleteRequest: (TimeEntry) -> Unit,
+    onDismissContextMenu: () -> Unit,
+    onContextMenuEdit: (Long) -> Unit,
+    onContextMenuDelete: (TimeEntry) -> Unit,
+    onContextMenuSplit: (TimeEntry) -> Unit,
     onDeleteConfirm: () -> Unit,
     onDeleteCancel: () -> Unit,
-    onSplitRequest: (TimeEntry) -> Unit,
     onSplitConfirm: (Instant) -> Unit,
     onSplitCancel: () -> Unit,
     onMergeRequest: () -> Unit,
@@ -167,7 +172,7 @@ private fun TimelineScreenContent(
     onShowDatePicker: () -> Unit,
     onHideDatePicker: () -> Unit,
     modifier: Modifier = Modifier
-) {
+) { 
     val onCreateFromGapSafe = onCreateFromGap
     val listState = rememberLazyListState()
 
@@ -291,7 +296,12 @@ private fun TimelineScreenContent(
                                                 entry = entry,
                                                 isSelected = entry.id in uiState.selectedEntryIds,
                                                 isSelectionMode = uiState.isSelectionMode,
-                                                onClick = { onEntryClick(entry) },
+                                                isContextMenuVisible = uiState.contextMenu?.entryId == entry.id,
+                                                onDismissContextMenu = onDismissContextMenu,
+                                                onEditClick = { onContextMenuEdit(entry.id) },
+                                                onDeleteClick = { onContextMenuDelete(entry) },
+                                                onSplitClick = { onContextMenuSplit(entry) },
+                                                onClick = { tapOffset -> onEntryClick(entry, tapOffset) },
                                                 onLongClick = { onEntryLongPress(entry) },
                                                 modifier = Modifier.animateItem()
                                             )
@@ -697,13 +707,15 @@ private fun TimelineScreenPreview() {
             ),
             snackbarHostState = SnackbarHostState(),
             onRefresh = {},
-            onEntryClick = {},
+            onEntryClick = { _, _ -> },
             onEntryLongPress = {},
             onExitSelectionMode = {},
-            onDeleteRequest = {},
+            onDismissContextMenu = {},
+            onContextMenuEdit = {},
+            onContextMenuDelete = {},
+            onContextMenuSplit = {},
             onDeleteConfirm = {},
             onDeleteCancel = {},
-            onSplitRequest = {},
             onSplitConfirm = {},
             onSplitCancel = {},
             onMergeRequest = {},
@@ -730,13 +742,15 @@ private fun EmptyTimelinePreview() {
             ),
             snackbarHostState = SnackbarHostState(),
             onRefresh = {},
-            onEntryClick = {},
+            onEntryClick = { _, _ -> },
             onEntryLongPress = {},
             onExitSelectionMode = {},
-            onDeleteRequest = {},
+            onDismissContextMenu = {},
+            onContextMenuEdit = {},
+            onContextMenuDelete = {},
+            onContextMenuSplit = {},
             onDeleteConfirm = {},
             onDeleteCancel = {},
-            onSplitRequest = {},
             onSplitConfirm = {},
             onSplitCancel = {},
             onMergeRequest = {},
