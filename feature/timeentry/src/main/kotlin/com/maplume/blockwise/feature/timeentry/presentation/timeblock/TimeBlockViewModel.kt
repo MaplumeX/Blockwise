@@ -45,7 +45,8 @@ data class TimeBlockUiState(
     val totalMinutes: Int = 0,
     val entryCount: Int = 0,
     val entryToDelete: TimeEntry? = null,
-    val showDatePicker: Boolean = false
+    val showDatePicker: Boolean = false,
+    val selectedEntryId: Long? = null
 ) {
     /**
      * Get the week start date (Monday) for the selected date.
@@ -235,8 +236,17 @@ class TimeBlockViewModel @Inject constructor(
      * Handle time block click - navigate to edit.
      */
     fun onEntryClick(entry: TimeEntry) {
+        _uiState.update { it.copy(selectedEntryId = entry.id) }
+    }
+
+    fun clearSelection() {
+        _uiState.update { it.copy(selectedEntryId = null) }
+    }
+
+    fun onSelectedEntryEdit() {
+        val entryId = _uiState.value.selectedEntryId ?: return
         viewModelScope.launch {
-            _events.emit(TimeBlockEvent.NavigateToEdit(entry.id))
+            _events.emit(TimeBlockEvent.NavigateToEdit(entryId))
         }
     }
 
@@ -254,6 +264,12 @@ class TimeBlockViewModel @Inject constructor(
      */
     fun onDeleteRequest(entry: TimeEntry) {
         _uiState.update { it.copy(entryToDelete = entry) }
+    }
+
+    fun onSelectedEntryDeleteRequest() {
+        val entryId = _uiState.value.selectedEntryId ?: return
+        val entry = _uiState.value.selectedDayEntries.firstOrNull { it.id == entryId } ?: return
+        onDeleteRequest(entry)
     }
 
     /**

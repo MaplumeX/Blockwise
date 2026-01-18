@@ -343,6 +343,7 @@ private fun TimelineScreenContent(
                             TimeBlockDayView(
                                 date = uiState.selectedDate,
                                 entries = entries,
+                                selectedEntryId = null,
                                 onEntryClick = { onContextMenuEdit(it.id) },
                                 onEntryLongClick = onEntryLongPress,
                                 onEmptySlotClick = { time ->

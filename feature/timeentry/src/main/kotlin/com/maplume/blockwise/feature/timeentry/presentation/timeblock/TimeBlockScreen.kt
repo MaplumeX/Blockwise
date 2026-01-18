@@ -1,11 +1,18 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeblock
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,23 +22,36 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CalendarViewDay
 import androidx.compose.material.icons.filled.CalendarViewWeek
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -41,6 +61,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -55,12 +76,16 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toJavaLocalTime
 import kotlinx.datetime.toLocalDateTime
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.time.Duration.Companion.hours
@@ -105,6 +130,9 @@ fun TimeBlockScreen(
         onEmptySlotClick = viewModel::onEmptySlotClick,
         onDeleteConfirm = viewModel::onDeleteConfirm,
         onDeleteCancel = viewModel::onDeleteCancel,
+        onEditEntry = viewModel::onSelectedEntryEdit,
+        onClearSelection = viewModel::clearSelection,
+        onDeleteSelected = viewModel::onSelectedEntryDeleteRequest,
         modifier = modifier
     )
 }
@@ -126,8 +154,15 @@ private fun TimeBlockScreenContent(
     onEmptySlotClick: (LocalDate, LocalTime) -> Unit,
     onDeleteConfirm: () -> Unit,
     onDeleteCancel: () -> Unit,
+    onEditEntry: () -> Unit,
+    onClearSelection: () -> Unit,
+    onDeleteSelected: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val selectedEntry = remember(uiState.selectedEntryId, uiState.entriesByDay) {
+        uiState.entriesByDay.values.flatten().find { it.id == uiState.selectedEntryId }
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -144,71 +179,106 @@ private fun TimeBlockScreenContent(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // Statistics summary
-            StatisticsSummary(
-                totalMinutes = uiState.totalMinutes,
-                entryCount = uiState.entryCount,
-                viewMode = uiState.viewMode,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Statistics summary
+                StatisticsSummary(
+                    totalMinutes = uiState.totalMinutes,
+                    entryCount = uiState.entryCount,
+                    viewMode = uiState.viewMode,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                )
 
-            // Main content
-            if (uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    LoadingIndicator()
-                }
-            } else {
-                AnimatedContent(
-                    targetState = uiState.viewMode,
-                    transitionSpec = {
-                        if (targetState == TimeBlockViewMode.WEEK) {
-                            slideInHorizontally { it } + fadeIn() togetherWith
-                                slideOutHorizontally { -it } + fadeOut()
-                        } else {
-                            slideInHorizontally { -it } + fadeIn() togetherWith
-                                slideOutHorizontally { it } + fadeOut()
-                        }
-                    },
-                    label = "ViewModeTransition"
-                ) { viewMode ->
-                    when (viewMode) {
-                        TimeBlockViewMode.DAY -> {
-                            TimeBlockDayView(
-                                date = uiState.selectedDate,
-                                entries = uiState.selectedDayEntries,
-                                onEntryClick = onEntryClick,
-                                onEntryLongClick = onEntryLongClick,
-                                onEmptySlotClick = { time ->
-                                    onEmptySlotClick(uiState.selectedDate, time)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                        TimeBlockViewMode.WEEK -> {
-                            TimeBlockWeekView(
-                                weekStart = uiState.weekStartDate,
-                                entriesByDay = uiState.entriesByDay,
-                                onEntryClick = onEntryClick,
-                                onEntryLongClick = onEntryLongClick,
-                                onEmptySlotClick = onEmptySlotClick,
-                                onDayHeaderClick = { date ->
-                                    onDateSelect(date)
-                                    onViewModeChange(TimeBlockViewMode.DAY)
-                                },
-                                modifier = Modifier.fillMaxSize()
-                            )
+                // Main content
+                if (uiState.isLoading) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        LoadingIndicator()
+                    }
+                } else {
+                    AnimatedContent(
+                        targetState = uiState.viewMode,
+                        transitionSpec = {
+                            if (targetState == TimeBlockViewMode.WEEK) {
+                                slideInHorizontally { it } + fadeIn() togetherWith
+                                    slideOutHorizontally { -it } + fadeOut()
+                            } else {
+                                slideInHorizontally { -it } + fadeIn() togetherWith
+                                    slideOutHorizontally { it } + fadeOut()
+                            }
+                        },
+                        label = "ViewModeTransition"
+                    ) { viewMode ->
+                        when (viewMode) {
+                            TimeBlockViewMode.DAY -> {
+                                TimeBlockDayView(
+                                    date = uiState.selectedDate,
+                                    entries = uiState.selectedDayEntries,
+                                    selectedEntryId = uiState.selectedEntryId,
+                                    onEntryClick = onEntryClick,
+                                    onEntryLongClick = onEntryLongClick,
+                                    onEmptySlotClick = { time ->
+                                        onEmptySlotClick(uiState.selectedDate, time)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                            TimeBlockViewMode.WEEK -> {
+                                TimeBlockWeekView(
+                                    weekStart = uiState.weekStartDate,
+                                    entriesByDay = uiState.entriesByDay,
+                                    onEntryClick = onEntryClick,
+                                    onEntryLongClick = onEntryLongClick,
+                                    onEmptySlotClick = onEmptySlotClick,
+                                    onDayHeaderClick = { date ->
+                                        onDateSelect(date)
+                                        onViewModeChange(TimeBlockViewMode.DAY)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
+                }
+            }
+
+            if (selectedEntry != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.3f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            onClearSelection()
+                        }
+                )
+            }
+
+            AnimatedVisibility(
+                visible = selectedEntry != null,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter)
+            ) {
+                if (selectedEntry != null) {
+                    TimeEntryDetailPanel(
+                        entry = selectedEntry,
+                        onEditClick = onEditEntry,
+                        onDeleteClick = onDeleteSelected,
+                        onDismiss = onClearSelection
+                    )
                 }
             }
         }
@@ -501,7 +571,10 @@ private fun TimeBlockScreenDayViewPreview() {
             onEntryLongClick = {},
             onEmptySlotClick = { _, _ -> },
             onDeleteConfirm = {},
-            onDeleteCancel = {}
+            onDeleteCancel = {},
+            onEditEntry = {},
+            onClearSelection = {},
+            onDeleteSelected = {}
         )
     }
 }
@@ -547,7 +620,10 @@ private fun TimeBlockScreenWeekViewPreview() {
             onEntryLongClick = {},
             onEmptySlotClick = { _, _ -> },
             onDeleteConfirm = {},
-            onDeleteCancel = {}
+            onDeleteCancel = {},
+            onEditEntry = {},
+            onClearSelection = {},
+            onDeleteSelected = {}
         )
     }
 }

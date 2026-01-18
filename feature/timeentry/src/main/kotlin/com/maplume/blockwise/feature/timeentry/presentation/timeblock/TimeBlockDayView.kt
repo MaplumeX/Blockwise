@@ -30,11 +30,13 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.math.roundToInt
 
 @Composable
 fun TimeBlockDayView(
     date: LocalDate,
     entries: List<TimeEntry>,
+    selectedEntryId: Long?,
     onEntryClick: (TimeEntry) -> Unit,
     onEntryLongClick: (TimeEntry) -> Unit,
     onEmptySlotClick: (LocalTime) -> Unit,
@@ -44,6 +46,11 @@ fun TimeBlockDayView(
     val scrollState = rememberScrollState()
     val timeAxisWidth = 48.dp
     val fiveMinuteStep = 5
+    val minutesPerDay = 24 * 60
+
+    fun snapMinutesToNearestGrid(minutes: Int, gridMinutes: Int): Int {
+        return ((minutes + gridMinutes / 2) / gridMinutes) * gridMinutes
+    }
 
     // Calculate positioned entries with overlap handling
     val positionedEntries = remember(entries) {
@@ -103,10 +110,12 @@ fun TimeBlockDayView(
                     }
                     .pointerInput(Unit) {
                         detectTapGestures { offset ->
-                            val minutesPerPx = (24f * 60f) / size.height
+                            val minutesPerPx = minutesPerDay.toFloat() / size.height
                             val minutesFloat = offset.y * minutesPerPx
-                            val snapped = ((minutesFloat / fiveMinuteStep).toInt() * fiveMinuteStep)
-                                .coerceIn(0, (24 * 60) - fiveMinuteStep)
+                            val rawMinutes = minutesFloat.roundToInt()
+
+                            val snapped = snapMinutesToNearestGrid(rawMinutes, fiveMinuteStep)
+                                .coerceIn(0, minutesPerDay - fiveMinuteStep)
 
                             val h = snapped / 60
                             val m = snapped % 60
@@ -147,6 +156,8 @@ fun TimeBlockDayView(
                             val columnWidth = blockAreaWidth / positioned.totalColumns
                             val leftOffset = columnWidth * positioned.columnIndex
 
+                            val isSelected = selectedEntryId == entry.id
+
                             TimeBlock(
                                 entry = entry,
                                 onClick = { onEntryClick(entry) },
@@ -157,6 +168,13 @@ fun TimeBlockDayView(
                                     .offset(x = leftOffset, y = topOffset)
                                     .width(columnWidth - 2.dp)
                                     .height(segmentHeight)
+                                    .drawBehind {
+                                        if (isSelected) {
+                                            drawRect(
+                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                                            )
+                                        }
+                                    }
                             )
                         }
                     }
