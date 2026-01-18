@@ -26,7 +26,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -42,7 +41,6 @@ import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -76,16 +74,12 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
-import kotlinx.datetime.toJavaLocalTime
 import kotlinx.datetime.toLocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.time.Duration.Companion.hours
@@ -97,6 +91,7 @@ import kotlin.time.Duration.Companion.hours
 fun TimeBlockScreen(
     onNavigateToEdit: (Long) -> Unit,
     onNavigateToCreate: (LocalDate, LocalTime?) -> Unit,
+    onNavigateToCreateFromRange: (startTimeMillis: Long, endTimeMillis: Long) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     viewModel: TimeBlockViewModel = hiltViewModel()
 ) {
@@ -109,6 +104,9 @@ fun TimeBlockScreen(
             when (event) {
                 is TimeBlockEvent.NavigateToEdit -> onNavigateToEdit(event.entryId)
                 is TimeBlockEvent.NavigateToCreate -> onNavigateToCreate(event.date, event.time)
+                is TimeBlockEvent.NavigateToCreateRange -> {
+                    onNavigateToCreateFromRange(event.startTimeMillis, event.endTimeMillis)
+                }
                 is TimeBlockEvent.Error -> snackbarHostState.showSnackbar(event.message)
                 is TimeBlockEvent.DeleteSuccess -> snackbarHostState.showSnackbar("删除成功")
             }
@@ -128,6 +126,7 @@ fun TimeBlockScreen(
         onEntryClick = viewModel::onEntryClick,
         onEntryLongClick = viewModel::onDeleteRequest,
         onEmptySlotClick = viewModel::onEmptySlotClick,
+        onEmptyRangeCreate = viewModel::onEmptyRangeCreate,
         onDeleteConfirm = viewModel::onDeleteConfirm,
         onDeleteCancel = viewModel::onDeleteCancel,
         onEditEntry = viewModel::onSelectedEntryEdit,
@@ -152,6 +151,7 @@ private fun TimeBlockScreenContent(
     onEntryClick: (TimeEntry) -> Unit,
     onEntryLongClick: (TimeEntry) -> Unit,
     onEmptySlotClick: (LocalDate, LocalTime) -> Unit,
+    onEmptyRangeCreate: (LocalDate, LocalTime, LocalTime) -> Unit,
     onDeleteConfirm: () -> Unit,
     onDeleteCancel: () -> Unit,
     onEditEntry: () -> Unit,
@@ -229,6 +229,9 @@ private fun TimeBlockScreenContent(
                                     onEntryLongClick = onEntryLongClick,
                                     onEmptySlotClick = { time ->
                                         onEmptySlotClick(uiState.selectedDate, time)
+                                    },
+                                    onEmptyRangeCreate = { startTime, endTime ->
+                                        onEmptyRangeCreate(uiState.selectedDate, startTime, endTime)
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -518,6 +521,171 @@ private fun formatDuration(totalMinutes: Int): String {
     }
 }
 
+/**
+ * Detail panel for selected time entry.
+ */
+@Composable
+private fun TimeEntryDetailPanel(
+    entry: TimeEntry,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header: Activity Name + Close
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(parseColor(entry.activity.colorHex), CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = entry.activity.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Default.Close, contentDescription = "Close")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Time & Duration
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "${formatTimeRange(entry)} (${formatDuration(entry.durationMinutes)})",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            // Note
+            if (!entry.note.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        imageVector = Icons.Default.Notes,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = entry.note!!,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+
+            // Tags
+            if (entry.tags.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    entry.tags.forEach { tag ->
+                        SuggestionChip(
+                            onClick = {},
+                            label = { Text(tag.name) },
+                            icon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(parseColor(tag.colorHex), CircleShape)
+                                )
+                            },
+                            colors = androidx.compose.material3.SuggestionChipDefaults.suggestionChipColors(
+                                containerColor = parseColor(tag.colorHex).copy(alpha = 0.1f),
+                                labelColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            border = null
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("删除")
+                }
+                Button(
+                    onClick = onEditClick,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("编辑")
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Format time range.
+ */
+private fun formatTimeRange(entry: TimeEntry): String {
+    val tz = TimeZone.currentSystemDefault()
+    val startLocal = entry.startTime.toLocalDateTime(tz)
+    val endLocal = entry.endTime.toLocalDateTime(tz)
+    val startStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
+    val endStr = String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+    return "$startStr - $endStr"
+}
+
+/**
+ * Parse hex color.
+ */
+private fun parseColor(hex: String): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (e: Exception) {
+        Color.Gray
+    }
+}
+
 // =============================================================================
 // Previews
 // =============================================================================
@@ -570,6 +738,7 @@ private fun TimeBlockScreenDayViewPreview() {
             onEntryClick = {},
             onEntryLongClick = {},
             onEmptySlotClick = { _, _ -> },
+            onEmptyRangeCreate = { _, _, _ -> },
             onDeleteConfirm = {},
             onDeleteCancel = {},
             onEditEntry = {},
@@ -584,7 +753,6 @@ private fun TimeBlockScreenDayViewPreview() {
 private fun TimeBlockScreenWeekViewPreview() {
     val now = Clock.System.now()
     val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
-    val weekStart = today.minus(today.dayOfWeek.ordinal, DateTimeUnit.DAY)
 
     BlockwiseTheme {
         TimeBlockScreenContent(
@@ -619,6 +787,7 @@ private fun TimeBlockScreenWeekViewPreview() {
             onEntryClick = {},
             onEntryLongClick = {},
             onEmptySlotClick = { _, _ -> },
+            onEmptyRangeCreate = { _, _, _ -> },
             onDeleteConfirm = {},
             onDeleteCancel = {},
             onEditEntry = {},

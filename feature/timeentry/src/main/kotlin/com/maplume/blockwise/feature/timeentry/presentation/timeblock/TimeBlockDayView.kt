@@ -1,5 +1,6 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeblock
 
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,11 +18,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -40,6 +45,7 @@ fun TimeBlockDayView(
     onEntryClick: (TimeEntry) -> Unit,
     onEntryLongClick: (TimeEntry) -> Unit,
     onEmptySlotClick: (LocalTime) -> Unit,
+    onEmptyRangeCreate: (startTime: LocalTime, endTime: LocalTime) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
     hourHeight: Dp = 60.dp
 ) {
@@ -52,6 +58,27 @@ fun TimeBlockDayView(
         return ((minutes + gridMinutes / 2) / gridMinutes) * gridMinutes
     }
 
+    fun minutesToLocalTime(minutes: Int): LocalTime {
+        if (minutes >= minutesPerDay) return LocalTime(0, 0)
+        val clamped = minutes.coerceAtLeast(0)
+        val hours = clamped / 60
+        val mins = clamped % 60
+        return LocalTime(hours, mins)
+    }
+
+    fun yToSnappedMinutes(yPx: Float, heightPx: Float): Int {
+        val minutesPerPx = minutesPerDay.toFloat() / heightPx
+        val rawMinutes = (yPx * minutesPerPx).roundToInt()
+        return snapMinutesToNearestGrid(rawMinutes, fiveMinuteStep)
+            .coerceIn(0, minutesPerDay)
+    }
+
+    fun minutesToY(minutes: Int, heightPx: Float): Float {
+        return (minutes.toFloat() / minutesPerDay) * heightPx
+    }
+
+    var rangeSelection by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+
     // Calculate positioned entries with overlap handling
     val positionedEntries = remember(entries) {
         calculatePositionedEntries(entries)
@@ -59,6 +86,8 @@ fun TimeBlockDayView(
 
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
     val subGridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
+    val rangeSelectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+    val selectedEntryOverlayColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
 
     Box(modifier = modifier) {
         Row(
@@ -107,20 +136,68 @@ fun TimeBlockDayView(
                             end = Offset(width, size.height),
                             strokeWidth = 1.dp.toPx()
                         )
+
+                        val selection = rangeSelection
+                        if (selection != null) {
+                            val (a, b) = selection
+                            val start = minOf(a, b)
+                            val end = maxOf(a, b)
+
+                            if (end > start) {
+                                val topPx = minutesToY(start, size.height)
+                                val bottomPx = minutesToY(end, size.height)
+
+                                drawRect(
+                                    color = rangeSelectionColor,
+                                    topLeft = Offset(0f, topPx),
+                                    size = Size(width, bottomPx - topPx)
+                                )
+                            }
+                        }
                     }
                     .pointerInput(Unit) {
-                        detectTapGestures { offset ->
-                            val minutesPerPx = minutesPerDay.toFloat() / size.height
-                            val minutesFloat = offset.y * minutesPerPx
-                            val rawMinutes = minutesFloat.roundToInt()
-
-                            val snapped = snapMinutesToNearestGrid(rawMinutes, fiveMinuteStep)
-                                .coerceIn(0, minutesPerDay - fiveMinuteStep)
-
-                            val h = snapped / 60
-                            val m = snapped % 60
-                            onEmptySlotClick(LocalTime(h, m))
-                        }
+                        detectTapGestures(
+                            onTap = { offset ->
+                                val minutes = yToSnappedMinutes(offset.y, size.height.toFloat())
+                                val snapped = minutes.coerceIn(0, minutesPerDay - fiveMinuteStep)
+                                onEmptySlotClick(minutesToLocalTime(snapped))
+                            }
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { offset ->
+                                val startMinutes = yToSnappedMinutes(offset.y, size.height.toFloat())
+                                rangeSelection = startMinutes to startMinutes
+                            },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                val current = rangeSelection
+                                if (current != null) {
+                                    val (start, _) = current
+                                    val endMinutes = yToSnappedMinutes(change.position.y, size.height.toFloat())
+                                    rangeSelection = start to endMinutes
+                                }
+                            },
+                            onDragEnd = {
+                                val selection = rangeSelection
+                                rangeSelection = null
+                                if (selection != null) {
+                                    val (a, b) = selection
+                                    val start = minOf(a, b)
+                                    val end = maxOf(a, b)
+                                    if (end > start) {
+                                        onEmptyRangeCreate(
+                                            minutesToLocalTime(start),
+                                            minutesToLocalTime(end)
+                                        )
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                rangeSelection = null
+                            }
+                        )
                     }
             ) {
                 val blockAreaWidth = maxWidth
@@ -170,9 +247,7 @@ fun TimeBlockDayView(
                                     .height(segmentHeight)
                                     .drawBehind {
                                         if (isSelected) {
-                                            drawRect(
-                                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
-                                            )
+                                            drawRect(color = selectedEntryOverlayColor)
                                         }
                                     }
                             )

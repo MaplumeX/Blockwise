@@ -47,6 +47,7 @@ data class TimelineUiState(
     val selectedEntryIds: Set<Long> = emptySet(),
     val isSelectionMode: Boolean = false,
     val contextMenu: TimelineContextMenuState? = null,
+    val selectedTimeBlockEntry: TimeEntry? = null,
     val entryToDelete: TimeEntry? = null,
     val entryToSplit: TimeEntry? = null,
     val showMergeConfirmation: Boolean = false,
@@ -187,6 +188,14 @@ class TimelineViewModel @Inject constructor(
     }
     
     // Legacy loadMore removed as we are now week-based.
+
+    fun onTimeBlockEntryClick(entry: TimeEntry) {
+        _uiState.update { it.copy(selectedTimeBlockEntry = entry) }
+    }
+
+    fun clearTimeBlockSelection() {
+        _uiState.update { it.copy(selectedTimeBlockEntry = null) }
+    }
 
     /**
      * Handle entry click - navigate to edit.

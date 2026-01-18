@@ -19,9 +19,11 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
@@ -86,6 +88,7 @@ data class TimeBlockUiState(
 sealed class TimeBlockEvent {
     data class NavigateToEdit(val entryId: Long) : TimeBlockEvent()
     data class NavigateToCreate(val date: LocalDate, val time: LocalTime?) : TimeBlockEvent()
+    data class NavigateToCreateRange(val startTimeMillis: Long, val endTimeMillis: Long) : TimeBlockEvent()
     data class Error(val message: String) : TimeBlockEvent()
     data object DeleteSuccess : TimeBlockEvent()
 }
@@ -256,6 +259,24 @@ class TimeBlockViewModel @Inject constructor(
     fun onEmptySlotClick(date: LocalDate, time: LocalTime) {
         viewModelScope.launch {
             _events.emit(TimeBlockEvent.NavigateToCreate(date, time))
+        }
+    }
+
+    fun onEmptyRangeCreate(date: LocalDate, startTime: LocalTime, endTime: LocalTime) {
+        val tz = TimeZone.currentSystemDefault()
+        val start = LocalDateTime(date, startTime).toInstant(tz)
+        var end = LocalDateTime(date, endTime).toInstant(tz)
+        if (end <= start) {
+            end = end.plus(1, DateTimeUnit.DAY, tz)
+        }
+
+        viewModelScope.launch {
+            _events.emit(
+                TimeBlockEvent.NavigateToCreateRange(
+                    startTimeMillis = start.toEpochMilliseconds(),
+                    endTimeMillis = end.toEpochMilliseconds()
+                )
+            )
         }
     }
 
