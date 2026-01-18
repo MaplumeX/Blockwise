@@ -36,6 +36,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MergeType
+import androidx.compose.material.icons.filled.CalendarViewDay
+import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
@@ -59,6 +61,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,13 +82,17 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
+import com.maplume.blockwise.feature.timeentry.presentation.timeblock.TimeBlockDayView
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import java.time.format.TextStyle
 import java.util.Locale
@@ -98,6 +105,8 @@ import kotlin.time.Duration.Companion.hours
 fun TimelineScreen(
     onNavigateToEdit: (Long) -> Unit,
     onNavigateToCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
+    viewMode: TimelineViewMode = TimelineViewMode.LIST,
+    onViewModeChange: (TimelineViewMode) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: TimelineViewModel = hiltViewModel()
 ) {
@@ -120,6 +129,8 @@ fun TimelineScreen(
     TimelineScreenContent(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
+        viewMode = viewMode,
+        onViewModeChange = onViewModeChange,
         onRefresh = viewModel::refresh,
         onEntryClick = viewModel::onEntryClick,
         onEntryLongPress = viewModel::onEntryLongPress,
@@ -150,6 +161,8 @@ fun TimelineScreen(
 private fun TimelineScreenContent(
     uiState: TimelineUiState,
     snackbarHostState: SnackbarHostState,
+    viewMode: TimelineViewMode,
+    onViewModeChange: (TimelineViewMode) -> Unit,
     onRefresh: () -> Unit,
     onEntryClick: (TimeEntry, Offset) -> Unit,
     onEntryLongPress: (TimeEntry) -> Unit,
@@ -188,6 +201,8 @@ private fun TimelineScreenContent(
             } else {
                 TimelineDateTopBar(
                     weekStartDate = uiState.weekStartDate,
+                    viewMode = viewMode,
+                    onViewModeChange = onViewModeChange,
                     onTitleClick = onShowDatePicker,
                     onTodayClick = onNavigateToToday,
                     onPreviousWeek = { onNavigateWeek(-1) },
@@ -267,58 +282,76 @@ private fun TimelineScreenContent(
                         onRefresh = onRefresh,
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        LazyColumn(
-                            state = listState,
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(0.dp)
-                        ) {
-                            uiState.dayGroups.forEach { dayGroup ->
-                                stickyHeader(key = "header_${dayGroup.date}") {
-                                    StickyDateGroupHeader(
-                                        date = dayGroup.date,
-                                        totalMinutes = dayGroup.totalMinutes
-                                    )
-                                }
-
-                                items(
-                                    items = dayGroup.items,
-                                    key = { item ->
-                                        when (item) {
-                                            is TimelineItem.Entry -> "entry-${item.entry.id}"
-                                            is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
-                                        }
+                        if (viewMode == TimelineViewMode.LIST) {
+                            LazyColumn(
+                                state = listState,
+                                contentPadding = PaddingValues(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(0.dp)
+                            ) {
+                                uiState.dayGroups.forEach { dayGroup ->
+                                    stickyHeader(key = "header_${dayGroup.date}") {
+                                        StickyDateGroupHeader(
+                                            date = dayGroup.date,
+                                            totalMinutes = dayGroup.totalMinutes
+                                        )
                                     }
-                                ) { item ->
-                                    when (item) {
-                                        is TimelineItem.Entry -> {
-                                            val entry = item.entry
-                                            TimeEntryItem(
-                                                entry = entry,
-                                                isSelected = entry.id in uiState.selectedEntryIds,
-                                                isSelectionMode = uiState.isSelectionMode,
-                                                isContextMenuVisible = uiState.contextMenu?.entryId == entry.id,
-                                                onDismissContextMenu = onDismissContextMenu,
-                                                onEditClick = { onContextMenuEdit(entry.id) },
-                                                onDeleteClick = { onContextMenuDelete(entry) },
-                                                onSplitClick = { onContextMenuSplit(entry) },
-                                                onClick = { tapOffset -> onEntryClick(entry, tapOffset) },
-                                                onLongClick = { onEntryLongPress(entry) },
-                                                modifier = Modifier.animateItem()
-                                            )
+
+                                    items(
+                                        items = dayGroup.items,
+                                        key = { item ->
+                                            when (item) {
+                                                is TimelineItem.Entry -> "entry-${item.entry.id}"
+                                                is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
+                                            }
                                         }
-                                        is TimelineItem.UntrackedGap -> {
-                                            UntrackedGapItem(
-                                                startTime = item.startTime,
-                                                endTime = item.endTime,
-                                                onClick = {
-                                                    onCreateFromGapSafe(item.startTime, item.endTime)
-                                                },
-                                                modifier = Modifier.animateItem()
-                                            )
+                                    ) { item ->
+                                        when (item) {
+                                            is TimelineItem.Entry -> {
+                                                val entry = item.entry
+                                                TimeEntryItem(
+                                                    entry = entry,
+                                                    isSelected = entry.id in uiState.selectedEntryIds,
+                                                    isSelectionMode = uiState.isSelectionMode,
+                                                    isContextMenuVisible = uiState.contextMenu?.entryId == entry.id,
+                                                    onDismissContextMenu = onDismissContextMenu,
+                                                    onEditClick = { onContextMenuEdit(entry.id) },
+                                                    onDeleteClick = { onContextMenuDelete(entry) },
+                                                    onSplitClick = { onContextMenuSplit(entry) },
+                                                    onClick = { tapOffset -> onEntryClick(entry, tapOffset) },
+                                                    onLongClick = { onEntryLongPress(entry) },
+                                                    modifier = Modifier.animateItem()
+                                                )
+                                            }
+                                            is TimelineItem.UntrackedGap -> {
+                                                UntrackedGapItem(
+                                                    startTime = item.startTime,
+                                                    endTime = item.endTime,
+                                                    onClick = {
+                                                        onCreateFromGapSafe(item.startTime, item.endTime)
+                                                    },
+                                                    modifier = Modifier.animateItem()
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
+                        } else {
+                            val dayGroup = uiState.dayGroups.find { it.date == uiState.selectedDate }
+                            val entries = dayGroup?.items?.mapNotNull { (it as? TimelineItem.Entry)?.entry } ?: emptyList()
+
+                            TimeBlockDayView(
+                                date = uiState.selectedDate,
+                                entries = entries,
+                                onEntryClick = { onContextMenuEdit(it.id) },
+                                onEntryLongClick = onEntryLongPress,
+                                onEmptySlotClick = { time ->
+                                    val start = LocalDateTime(uiState.selectedDate, time).toInstant(TimeZone.currentSystemDefault())
+                                    val end = start.plus(1, DateTimeUnit.HOUR)
+                                    onCreateFromGapSafe(start, end)
+                                },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
                     }
                 }
@@ -366,6 +399,8 @@ private fun TimelineScreenContent(
 @Composable
 private fun TimelineDateTopBar(
     weekStartDate: LocalDate,
+    viewMode: TimelineViewMode,
+    onViewModeChange: (TimelineViewMode) -> Unit,
     onTitleClick: () -> Unit,
     onTodayClick: () -> Unit,
     onPreviousWeek: () -> Unit,
@@ -406,6 +441,25 @@ private fun TimelineDateTopBar(
             }
             IconButton(onClick = onTodayClick) {
                 Icon(Icons.Default.Today, contentDescription = "今天")
+            }
+            IconButton(
+                onClick = {
+                    val nextMode = if (viewMode == TimelineViewMode.LIST) {
+                        TimelineViewMode.TIME_BLOCK
+                    } else {
+                        TimelineViewMode.LIST
+                    }
+                    onViewModeChange(nextMode)
+                }
+            ) {
+                Icon(
+                    imageVector = if (viewMode == TimelineViewMode.LIST) {
+                        Icons.Default.CalendarViewDay
+                    } else {
+                        Icons.Default.Timeline
+                    },
+                    contentDescription = if (viewMode == TimelineViewMode.LIST) "时间块" else "时间线"
+                )
             }
         }
     )
@@ -706,6 +760,8 @@ private fun TimelineScreenPreview() {
                 isLoading = false
             ),
             snackbarHostState = SnackbarHostState(),
+            viewMode = TimelineViewMode.LIST,
+            onViewModeChange = {},
             onRefresh = {},
             onEntryClick = { _, _ -> },
             onEntryLongPress = {},
@@ -741,6 +797,8 @@ private fun EmptyTimelinePreview() {
                 isLoading = false
             ),
             snackbarHostState = SnackbarHostState(),
+            viewMode = TimelineViewMode.LIST,
+            onViewModeChange = {},
             onRefresh = {},
             onEntryClick = { _, _ -> },
             onEntryLongPress = {},

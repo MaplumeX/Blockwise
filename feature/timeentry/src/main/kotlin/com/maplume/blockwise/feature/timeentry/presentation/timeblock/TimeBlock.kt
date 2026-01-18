@@ -15,15 +15,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * Single time block component representing a time entry.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TimeBlock(
@@ -31,7 +29,8 @@ fun TimeBlock(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
-    showDetails: Boolean = true
+    showDetails: Boolean = true,
+    shape: Shape = RoundedCornerShape(4.dp)
 ) {
     val backgroundColor = remember(entry.activity.colorHex) {
         parseColorHex(entry.activity.colorHex)
@@ -43,7 +42,7 @@ fun TimeBlock(
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(4.dp))
+            .clip(shape)
             .background(backgroundColor.copy(alpha = 0.85f))
             .combinedClickable(
                 onClick = onClick,
@@ -76,9 +75,6 @@ fun TimeBlock(
     }
 }
 
-/**
- * Compact time block for week view.
- */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun CompactTimeBlock(
@@ -113,9 +109,6 @@ fun CompactTimeBlock(
     }
 }
 
-/**
- * Format time range for display.
- */
 private fun formatTimeRange(entry: TimeEntry): String {
     val tz = TimeZone.currentSystemDefault()
     val startLocal = entry.startTime.toLocalDateTime(tz)
@@ -127,9 +120,6 @@ private fun formatTimeRange(entry: TimeEntry): String {
     return "$startStr-$endStr"
 }
 
-/**
- * Parse hex color string to Color.
- */
 internal fun parseColorHex(colorHex: String): Color {
     return try {
         Color(android.graphics.Color.parseColor(colorHex))
@@ -138,9 +128,6 @@ internal fun parseColorHex(colorHex: String): Color {
     }
 }
 
-/**
- * Check if a color is dark (for determining text color).
- */
 internal fun isColorDark(color: Color): Boolean {
     val luminance = 0.299 * color.red + 0.587 * color.green + 0.114 * color.blue
     return luminance < 0.5

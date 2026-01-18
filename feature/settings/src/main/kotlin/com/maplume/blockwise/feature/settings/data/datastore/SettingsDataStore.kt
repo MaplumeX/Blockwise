@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import com.maplume.blockwise.feature.settings.domain.model.NotificationSettings
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -34,6 +35,8 @@ class SettingsDataStore @Inject constructor(
     // Theme
     private val themeModeKey = stringPreferencesKey("theme_mode")
 
+    private val timelineViewModeKey = stringPreferencesKey("timeline_view_mode")
+
     // Notifications
     private val dailyReminderEnabledKey = booleanPreferencesKey("daily_reminder_enabled")
     private val dailyReminderTimeKey = intPreferencesKey("daily_reminder_time")
@@ -56,6 +59,11 @@ class SettingsDataStore @Inject constructor(
     val themeMode: Flow<ThemeMode> = dataStore.data.map { preferences ->
         val value = preferences[themeModeKey] ?: ThemeMode.SYSTEM.name
         ThemeMode.valueOf(value)
+    }
+
+    val timelineViewMode: Flow<TimelineViewMode> = dataStore.data.map { preferences ->
+        val value = preferences[timelineViewModeKey] ?: TimelineViewMode.LIST.name
+        TimelineViewMode.valueOf(value)
     }
 
     /**
@@ -104,6 +112,12 @@ class SettingsDataStore @Inject constructor(
     suspend fun setThemeMode(themeMode: ThemeMode) {
         dataStore.edit { preferences ->
             preferences[themeModeKey] = themeMode.name
+        }
+    }
+
+    suspend fun setTimelineViewMode(viewMode: TimelineViewMode) {
+        dataStore.edit { preferences ->
+            preferences[timelineViewModeKey] = viewMode.name
         }
     }
 

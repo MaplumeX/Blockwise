@@ -2,6 +2,7 @@ package com.maplume.blockwise.feature.settings.data.repository
 
 import com.maplume.blockwise.feature.settings.data.datastore.SettingsDataStore
 import com.maplume.blockwise.feature.settings.domain.model.AppSettings
+import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import com.maplume.blockwise.feature.settings.domain.model.NotificationSettings
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
 import com.maplume.blockwise.feature.settings.domain.repository.SettingsRepository
@@ -34,11 +35,17 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override fun getThemeMode(): Flow<ThemeMode> = settingsDataStore.themeMode
 
+    override fun getTimelineViewMode(): Flow<TimelineViewMode> = settingsDataStore.timelineViewMode
+
     override fun getNotificationSettings(): Flow<NotificationSettings> =
         settingsDataStore.notificationSettings
 
     override suspend fun setThemeMode(themeMode: ThemeMode) {
         settingsDataStore.setThemeMode(themeMode)
+    }
+
+    override suspend fun setTimelineViewMode(viewMode: TimelineViewMode) {
+        settingsDataStore.setTimelineViewMode(viewMode)
     }
 
     override suspend fun setDailyReminderEnabled(enabled: Boolean) {

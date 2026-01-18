@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,6 +35,7 @@ import com.maplume.blockwise.feature.goal.presentation.list.GoalListScreen
 import com.maplume.blockwise.feature.onboarding.presentation.OnboardingNavigation
 import com.maplume.blockwise.feature.onboarding.presentation.OnboardingScreen
 import com.maplume.blockwise.feature.settings.data.datastore.SettingsDataStore
+import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
 import com.maplume.blockwise.feature.settings.domain.repository.SettingsRepository
 import com.maplume.blockwise.feature.settings.presentation.SettingsNavigation
@@ -62,17 +65,23 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.toLocalDateTime
 import java.net.URLDecoder
 import javax.inject.Inject
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel for MainActivity to handle theme state and onboarding state.
  */
 @HiltViewModel
 class MainViewModel @Inject constructor(
-    settingsRepository: SettingsRepository,
+    private val settingsRepository: SettingsRepository,
     settingsDataStore: SettingsDataStore
 ) : ViewModel() {
     val themeMode = settingsRepository.getThemeMode()
     val onboardingCompleted = settingsDataStore.onboardingCompleted
+    val timelineViewMode = settingsRepository.getTimelineViewMode()
+
+    suspend fun setTimelineViewMode(viewMode: TimelineViewMode) {
+        settingsRepository.setTimelineViewMode(viewMode)
+    }
 }
 
 /**
@@ -163,18 +172,28 @@ fun BlockwiseApp(onboardingCompleted: Boolean) {
 
             // Today - Timer + Time Block View
             composable(BlockwiseNavigationItem.TODAY.route) {
+                val viewModel: MainViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
+
                 TimerScreen(
                     onNavigateToActivityTypes = {
                         navController.navigate(TimeEntryNavigation.ACTIVITY_TYPE_LIST_ROUTE)
                     },
                     onNavigateToTimeBlock = {
-                        navController.navigate(TimeEntryNavigation.TIME_BLOCK_ROUTE)
+                        scope.launch {
+                            viewModel.setTimelineViewMode(TimelineViewMode.TIME_BLOCK)
+                            navController.navigate(BlockwiseNavigationItem.TIMELINE.route)
+                        }
                     }
                 )
             }
 
             // Timeline
             composable(BlockwiseNavigationItem.TIMELINE.route) {
+                val viewModel: MainViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
+                val timelineViewMode by viewModel.timelineViewMode.collectAsStateWithLifecycle(initialValue = TimelineViewMode.LIST)
+
                 TimelineScreen(
                     onNavigateToEdit = { entryId ->
                         navController.navigate(TimeEntryNavigation.editEntryRoute(entryId))
@@ -186,6 +205,12 @@ fun BlockwiseApp(onboardingCompleted: Boolean) {
                                 endTimeMillis = endTime.toEpochMilliseconds()
                             )
                         )
+                    },
+                    viewMode = timelineViewMode,
+                    onViewModeChange = { newMode ->
+                        scope.launch {
+                            viewModel.setTimelineViewMode(newMode)
+                        }
                     }
                 )
             }
@@ -365,22 +390,17 @@ fun BlockwiseApp(onboardingCompleted: Boolean) {
 
             // ==================== Time Entry Routes ====================
 
-            // Time Block View
             composable(TimeEntryNavigation.TIME_BLOCK_ROUTE) {
-                TimeBlockScreen(
-                    onNavigateToEdit = { entryId ->
-                        navController.navigate(TimeEntryNavigation.editEntryRoute(entryId))
-                    },
-                    onNavigateToCreate = { date, time ->
-                        navController.navigate(
-                            TimeEntryNavigation.timeBlockCreateRoute(
-                                date.toString(),
-                                time?.hour ?: 0,
-                                time?.minute ?: 0
-                            )
-                        )
+                val viewModel: MainViewModel = hiltViewModel()
+
+                LaunchedEffect(Unit) {
+                    viewModel.setTimelineViewMode(TimelineViewMode.TIME_BLOCK)
+                    navController.navigate(BlockwiseNavigationItem.TIMELINE.route) {
+                        popUpTo(TimeEntryNavigation.TIME_BLOCK_ROUTE) { inclusive = true }
                     }
-                )
+                }
+
+                Box(modifier = Modifier.fillMaxSize())
             }
 
             // Add Time Entry

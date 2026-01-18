@@ -1,6 +1,7 @@
 package com.maplume.blockwise.feature.settings.domain.repository
 
 import com.maplume.blockwise.feature.settings.domain.model.AppSettings
+import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import com.maplume.blockwise.feature.settings.domain.model.NotificationSettings
 import com.maplume.blockwise.feature.settings.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
@@ -19,6 +20,8 @@ interface SettingsRepository {
      */
     fun getThemeMode(): Flow<ThemeMode>
 
+    fun getTimelineViewMode(): Flow<TimelineViewMode>
+
     /**
      * Get notification settings as a Flow.
      */
@@ -28,6 +31,8 @@ interface SettingsRepository {
      * Update theme mode.
      */
     suspend fun setThemeMode(themeMode: ThemeMode)
+
+    suspend fun setTimelineViewMode(viewMode: TimelineViewMode)
 
     /**
      * Update daily reminder enabled state.

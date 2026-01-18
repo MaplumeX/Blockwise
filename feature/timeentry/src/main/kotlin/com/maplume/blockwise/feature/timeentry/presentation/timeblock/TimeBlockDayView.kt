@@ -1,13 +1,10 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeblock
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,15 +12,17 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.domain.model.TimeEntry
@@ -32,9 +31,6 @@ import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * Day view showing 24-hour timeline with time blocks.
- */
 @Composable
 fun TimeBlockDayView(
     date: LocalDate,
@@ -47,11 +43,15 @@ fun TimeBlockDayView(
 ) {
     val scrollState = rememberScrollState()
     val timeAxisWidth = 48.dp
+    val fiveMinuteStep = 5
 
     // Calculate positioned entries with overlap handling
     val positionedEntries = remember(entries) {
         calculatePositionedEntries(entries)
     }
+
+    val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+    val subGridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)
 
     Box(modifier = modifier) {
         Row(
@@ -70,52 +70,96 @@ fun TimeBlockDayView(
                 modifier = Modifier
                     .weight(1f)
                     .height(hourHeight * 24)
+                    .drawBehind {
+                        val hourPx = hourHeight.toPx()
+                        val width = size.width
+
+                        for (h in 0 until 24) {
+                            val y = h * hourPx
+                            drawLine(
+                                color = gridColor,
+                                start = Offset(0f, y),
+                                end = Offset(width, y),
+                                strokeWidth = 1.dp.toPx()
+                            )
+
+                            val fiveMinPx = hourPx / 12
+                            for (m in 1 until 12) {
+                                val subY = y + m * fiveMinPx
+                                drawLine(
+                                    color = subGridColor,
+                                    start = Offset(0f, subY),
+                                    end = Offset(width, subY),
+                                    strokeWidth = 0.5.dp.toPx()
+                                )
+                            }
+                        }
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(0f, size.height),
+                            end = Offset(width, size.height),
+                            strokeWidth = 1.dp.toPx()
+                        )
+                    }
+                    .pointerInput(Unit) {
+                        detectTapGestures { offset ->
+                            val minutesPerPx = (24f * 60f) / size.height
+                            val minutesFloat = offset.y * minutesPerPx
+                            val snapped = ((minutesFloat / fiveMinuteStep).toInt() * fiveMinuteStep)
+                                .coerceIn(0, (24 * 60) - fiveMinuteStep)
+
+                            val h = snapped / 60
+                            val m = snapped % 60
+                            onEmptySlotClick(LocalTime(h, m))
+                        }
+                    }
             ) {
                 val blockAreaWidth = maxWidth
 
-                // Hour grid lines and clickable areas
-                Column(modifier = Modifier.fillMaxSize()) {
-                    (0..23).forEach { hour ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(hourHeight)
-                                .clickable {
-                                    onEmptySlotClick(LocalTime(hour, 0))
-                                }
-                        ) {
-                            HorizontalDivider(
-                                modifier = Modifier.align(Alignment.TopStart),
-                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-                            )
-                        }
-                    }
-                }
-
-                // Time blocks
                 positionedEntries.forEach { positioned ->
                     val entry = positioned.entry
                     val startMinutes = getMinutesOfDay(entry.startTime)
                     val endMinutes = getMinutesOfDay(entry.endTime)
 
-                    val topOffset = (startMinutes * hourHeight.value / 60).dp
-                    val blockHeight = ((endMinutes - startMinutes) * hourHeight.value / 60).dp
-                        .coerceAtLeast(20.dp)
+                    val startHour = startMinutes / 60
+                    val endHour = (endMinutes - 1) / 60
 
-                    // Calculate width based on overlap
-                    val columnWidth = blockAreaWidth / positioned.totalColumns
-                    val leftOffset = columnWidth * positioned.columnIndex
+                    for (h in startHour..endHour) {
+                        val segStart = maxOf(startMinutes, h * 60)
+                        val segEnd = minOf(endMinutes, (h + 1) * 60)
 
-                    TimeBlock(
-                        entry = entry,
-                        onClick = { onEntryClick(entry) },
-                        onLongClick = { onEntryLongClick(entry) },
-                        showDetails = blockHeight >= 40.dp,
-                        modifier = Modifier
-                            .offset(x = leftOffset, y = topOffset)
-                            .width(columnWidth - 2.dp)
-                            .height(blockHeight)
-                    )
+                        if (segEnd > segStart) {
+                            val topOffset = (segStart * hourHeight.value / 60).dp
+                            val segmentHeight = ((segEnd - segStart) * hourHeight.value / 60).dp
+                                .coerceAtLeast((hourHeight.value / 60f * fiveMinuteStep).dp)
+
+                            val isFirst = (segStart == startMinutes)
+                            val isLast = (segEnd == endMinutes)
+
+                            val shape = RoundedCornerShape(
+                                topStart = if (isFirst) 4.dp else 0.dp,
+                                topEnd = if (isFirst) 4.dp else 0.dp,
+                                bottomStart = if (isLast) 4.dp else 0.dp,
+                                bottomEnd = if (isLast) 4.dp else 0.dp
+                            )
+
+                            // Calculate width based on overlap
+                            val columnWidth = blockAreaWidth / positioned.totalColumns
+                            val leftOffset = columnWidth * positioned.columnIndex
+
+                            TimeBlock(
+                                entry = entry,
+                                onClick = { onEntryClick(entry) },
+                                onLongClick = { onEntryLongClick(entry) },
+                                showDetails = segmentHeight >= 20.dp,
+                                shape = shape,
+                                modifier = Modifier
+                                    .offset(x = leftOffset, y = topOffset)
+                                    .width(columnWidth - 2.dp)
+                                    .height(segmentHeight)
+                            )
+                        }
+                    }
                 }
             }
         }
