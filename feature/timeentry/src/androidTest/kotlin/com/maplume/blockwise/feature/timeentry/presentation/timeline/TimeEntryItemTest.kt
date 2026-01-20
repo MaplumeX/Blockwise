@@ -6,13 +6,16 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performLongClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.longClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -26,6 +29,17 @@ import kotlin.time.Duration.Companion.hours
  */
 @RunWith(AndroidJUnit4::class)
 class TimeEntryItemTest {
+
+    private fun expectedDurationText(entry: TimeEntry): String {
+        val tz = TimeZone.currentSystemDefault()
+        val startLocal = entry.startTime.toLocalDateTime(tz)
+        val endLocal = entry.endTime.toLocalDateTime(tz)
+
+        val startStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
+        val endStr = String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+
+        return "$startStr - $endStr"
+    }
 
     @get:Rule
     val composeTestRule = createComposeRule()
@@ -70,11 +84,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -99,19 +108,14 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
             }
         }
 
-        // Then - duration should be displayed (1小时30分钟)
-        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("1小时30分钟")
+        // Then
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains(expectedDurationText(entry))
     }
 
     @Test
@@ -126,11 +130,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -138,7 +137,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("2小时")
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains(expectedDurationText(entry))
     }
 
     @Test
@@ -153,11 +152,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -165,7 +159,7 @@ class TimeEntryItemTest {
         }
 
         // Then
-        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains("30分钟")
+        composeTestRule.onNodeWithTag("timeEntryItem-1").assertTextContains(expectedDurationText(entry))
     }
 
     // ==================== Click Interaction Tests ====================
@@ -179,11 +173,6 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
@@ -209,11 +198,6 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
@@ -224,7 +208,7 @@ class TimeEntryItemTest {
         }
 
         // When
-        composeTestRule.onNodeWithTag("timeEntryItem-1").performLongClick()
+        composeTestRule.onNodeWithTag("timeEntryItem-1").performTouchInput { longClick() }
 
         // Then
         assertTrue(longClicked)
@@ -244,11 +228,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -271,11 +250,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -304,11 +278,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -338,11 +307,6 @@ class TimeEntryItemTest {
                     entry = entry,
                     isSelected = false,
                     isSelectionMode = false,
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     onClick = { _ -> },
                     onLongClick = {}
                 )
@@ -364,11 +328,6 @@ class TimeEntryItemTest {
         composeTestRule.setContent {
             BlockwiseTheme {
                 TimeEntryItem(
-                    isContextMenuVisible = false,
-                    onDismissContextMenu = {},
-                    onEditClick = {},
-                    onDeleteClick = {},
-                    onSplitClick = {},
                     entry = entry,
                     isSelected = true,
                     isSelectionMode = true,

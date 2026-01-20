@@ -31,30 +31,24 @@ Merge Down SHALL merge the current time entry with the immediately following tim
 - **THEN** the app merges the current entry with the adjacent later entry
 - **AND** the Timeline list reflects the merge
 
-## MODIFIED Requirements
-### Requirement: Timeline Entry Bottom Sheet
-The system SHALL display a fixed-height, non-draggable half-screen Bottom Sheet when the user taps a time entry card in the Timeline list while not in multi-select mode.
-The Bottom Sheet SHALL be dismissible via a close button in the top-right of the sheet and via tapping the scrim area above the sheet.
-The Bottom Sheet SHALL contain:
-- A top icon action area (infrequent actions), including Merge Up, Merge Down, Delete, and Close.
-- A main content editor area for the time entry.
-- A bottom primary action area for Save and Split.
+### Requirement: Timeline Batch Actions - Delete (Undo)
+The system SHALL provide a Delete action in the bottom batch action bar while in multi-select mode.
+When the user selects Delete, the system SHALL remove the selected time entries and SHALL provide an Undo affordance (e.g., Snackbar).
+If the user selects Undo, the system SHALL restore all removed time entries using the same time entry IDs.
 
-#### Scenario: Tap opens bottom sheet
-- **GIVEN** the Timeline list renders a time entry card
-- **AND** the system is not in multi-select mode
-- **WHEN** the user taps the time entry card
-- **THEN** a fixed-height Bottom Sheet is shown for that time entry
+#### Scenario: Batch delete provides Undo
+- **GIVEN** the system is in multi-select mode
+- **AND** the user has selected one or more time entries
+- **WHEN** the user selects the batch Delete action
+- **THEN** the selected time entries are removed from the Timeline list
+- **AND** the UI shows an Undo affordance
 
-#### Scenario: Dismiss bottom sheet via close button
-- **GIVEN** the Bottom Sheet is visible
-- **WHEN** the user taps the close button
-- **THEN** the Bottom Sheet is dismissed
-
-#### Scenario: Dismiss bottom sheet via scrim tap
-- **GIVEN** the Bottom Sheet is visible
-- **WHEN** the user taps outside the sheet (the scrim area)
-- **THEN** the Bottom Sheet is dismissed
+#### Scenario: Undo restores the deleted entries with same IDs
+- **GIVEN** the user batch-deleted one or more time entries
+- **AND** the Undo affordance is visible
+- **WHEN** the user selects Undo
+- **THEN** the time entries are restored with the same IDs
+- **AND** the Timeline list reflects the restored entries
 
 ### Requirement: Bottom Sheet Content - Time Range Editing
 The Bottom Sheet SHALL provide start and end time controls in a single row using two side-by-side wheel pickers.
@@ -99,6 +93,31 @@ The note input area SHALL have a minimum height.
 - **GIVEN** the Bottom Sheet is visible for a time entry with an empty note
 - **WHEN** the note input area is shown
 - **THEN** placeholder text is displayed
+
+## MODIFIED Requirements
+### Requirement: Timeline Entry Bottom Sheet
+The system SHALL display a fixed-height, non-draggable half-screen Bottom Sheet when the user taps a time entry card in the Timeline list while not in multi-select mode.
+The Bottom Sheet SHALL be dismissible via a close button in the top-right of the sheet and via tapping the scrim area above the sheet.
+The Bottom Sheet SHALL contain:
+- A top icon action area (infrequent actions), including Merge Up, Merge Down, Delete, and Close.
+- A main content editor area for the time entry.
+- A bottom primary action area for Save and Split.
+
+#### Scenario: Tap opens bottom sheet
+- **GIVEN** the Timeline list renders a time entry card
+- **AND** the system is not in multi-select mode
+- **WHEN** the user taps the time entry card
+- **THEN** a fixed-height Bottom Sheet is shown for that time entry
+
+#### Scenario: Dismiss bottom sheet via close button
+- **GIVEN** the Bottom Sheet is visible
+- **WHEN** the user taps the close button
+- **THEN** the Bottom Sheet is dismissed
+
+#### Scenario: Dismiss bottom sheet via scrim tap
+- **GIVEN** the Bottom Sheet is visible
+- **WHEN** the user taps outside the sheet (the scrim area)
+- **THEN** the Bottom Sheet is dismissed
 
 ### Requirement: Bottom Sheet Actions - Save Changes
 The Bottom Sheet SHALL provide a primary Save action.

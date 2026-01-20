@@ -20,13 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CallSplit
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,14 +43,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
@@ -62,35 +51,8 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import kotlin.math.max
-import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.hours
 
-/**
- * Time entry item component for the timeline list.
- */
-private class TapOffsetPopupPositionProvider(
-    private val tapOffset: Offset
-) : PopupPositionProvider {
-
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize
-    ): IntOffset {
-        val rawX = tapOffset.x.roundToInt()
-        val rawY = tapOffset.y.roundToInt()
-
-        val maxX = max(0, windowSize.width - popupContentSize.width)
-        val maxY = max(0, windowSize.height - popupContentSize.height)
-
-        val x = rawX.coerceIn(0, maxX)
-        val y = rawY.coerceIn(0, maxY)
-
-        return IntOffset(x, y)
-    }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -98,15 +60,10 @@ fun TimeEntryItem(
     entry: TimeEntry,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    isContextMenuVisible: Boolean,
-    onDismissContextMenu: () -> Unit,
-    onEditClick: () -> Unit,
-    onDeleteClick: () -> Unit,
-    onSplitClick: () -> Unit,
-    onClick: (tapOffset: Offset) -> Unit,
+    onClick: (Offset) -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
-) { 
+) {
     val axisWidth = 32.dp
     val nodeSize = 14.dp
     val lineWidth = 2.dp
@@ -166,161 +123,97 @@ fun TimeEntryItem(
                         onClick = { onClick(lastTapOffset) },
                         onLongClick = onLongClick
                     ),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isSelected) {
-                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-                } else {
-                    MaterialTheme.colorScheme.surface
-                }
-            ),
-            elevation = CardDefaults.cardElevation(
-                defaultElevation = if (isSelected) 4.dp else 1.dp
-            )
-        ) {
-            Box {
-                if (isContextMenuVisible) {
-                    val positionProvider = remember(lastTapOffset) {
-                        TapOffsetPopupPositionProvider(tapOffset = lastTapOffset)
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (isSelected) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    } else {
+                        MaterialTheme.colorScheme.surface
                     }
-
-                    Popup(
-                        popupPositionProvider = positionProvider,
-                        onDismissRequest = onDismissContextMenu,
-                        properties = PopupProperties(focusable = true)
-                    ) {
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(vertical = 4.dp)) {
-                                DropdownMenuItem(
-                                    text = { Text("编辑") },
-                                    onClick = onEditClick,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Edit,
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("删除") },
-                                    onClick = onDeleteClick,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.Delete,
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("拆分") },
-                                    onClick = onSplitClick,
-                                    leadingIcon = {
-                                        Icon(
-                                            imageVector = Icons.Default.CallSplit,
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-
+                ),
+                elevation = CardDefaults.cardElevation(
+                    defaultElevation = if (isSelected) 4.dp else 1.dp
+                )
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Main Info Column
-                    Column(
-                        modifier = Modifier.weight(1f)
-                    ) {
-                    // Header: Title + Activity Type
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // Title (Note or Activity Name fallback)
-                        Text(
-                            text = if (!entry.note.isNullOrBlank()) entry.note!! else entry.activity.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        // Activity Type Name
-                        Text(
-                            text = entry.activity.name,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // Time Range Chip
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), // Light background
-                    ) {
-                        Text(
-                            text = formatTimeRange(entry),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontFamily = FontFamily.Monospace
-                            ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
-                    
-                    // Tags
-                    if (entry.tags.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        TagsRow(tags = entry.tags)
-                    }
-                }
-
-                // Selection indicator
-                if (isSelectionMode) {
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.surfaceVariant
-                                }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "已选择",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onPrimary
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (!entry.note.isNullOrBlank()) entry.note!! else entry.activity.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
                             )
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = entry.activity.name,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                        ) {
+                            Text(
+                                text = formatTimeRange(entry),
+                                style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+
+                        if (entry.tags.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TagsRow(tags = entry.tags)
+                        }
+                    }
+
+                    if (isSelectionMode) {
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "已选择",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.onPrimary
+                                )
+                            }
                         }
                     }
                 }
             }
         }
     }
-}
-}
 }
 
 /**
@@ -427,11 +320,6 @@ private fun TimeEntryItemPreview() {
             ),
             isSelected = false,
             isSelectionMode = false,
-            isContextMenuVisible = false,
-            onDismissContextMenu = {},
-            onEditClick = {},
-            onDeleteClick = {},
-            onSplitClick = {},
             onClick = { _ -> },
             onLongClick = {}
         )
@@ -455,11 +343,6 @@ private fun TimeEntryItemSelectedPreview() {
             ),
             isSelected = true,
             isSelectionMode = true,
-            isContextMenuVisible = false,
-            onDismissContextMenu = {},
-            onEditClick = {},
-            onDeleteClick = {},
-            onSplitClick = {},
             onClick = { _ -> },
             onLongClick = {}
         )

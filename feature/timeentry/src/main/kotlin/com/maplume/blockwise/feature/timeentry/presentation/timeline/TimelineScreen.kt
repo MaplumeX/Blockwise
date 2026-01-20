@@ -42,24 +42,23 @@ import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Today
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,7 +69,6 @@ import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
@@ -124,15 +122,27 @@ fun TimelineScreen(
     // Handle events
     LaunchedEffect(Unit) {
         viewModel.events.collect { event ->
-            when (event) {
-                is TimelineEvent.NavigateToEdit -> onNavigateToEdit(event.entryId)
-                is TimelineEvent.Error -> snackbarHostState.showSnackbar(event.message)
-                is TimelineEvent.DeleteSuccess -> snackbarHostState.showSnackbar("删除成功")
-                is TimelineEvent.SplitSuccess -> snackbarHostState.showSnackbar("拆分成功")
-                is TimelineEvent.MergeSuccess -> snackbarHostState.showSnackbar("合并成功")
-            }
-        }
-    }
+             when (event) {
+                 is TimelineEvent.NavigateToEdit -> onNavigateToEdit(event.entryId)
+                 is TimelineEvent.Error -> snackbarHostState.showSnackbar(event.message)
+                 is TimelineEvent.SplitSuccess -> snackbarHostState.showSnackbar("拆分成功")
+                 is TimelineEvent.MergeSuccess -> snackbarHostState.showSnackbar("合并成功")
+                 is TimelineEvent.SaveSuccess -> snackbarHostState.showSnackbar("保存成功")
+                 is TimelineEvent.ShowDeleteUndo -> {
+                     val result = snackbarHostState.showSnackbar(
+                         message = event.message,
+                         actionLabel = event.actionLabel
+                     )
+                     if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                         viewModel.onDeleteUndo(event.token)
+                     } else {
+                         viewModel.onDeleteCommit(event.token)
+                     }
+                 }
+             }
+         }
+     }
+
 
     TimelineScreenContent(
         uiState = uiState,
@@ -141,16 +151,22 @@ fun TimelineScreen(
         onViewModeChange = onViewModeChange,
         onRefresh = viewModel::refresh,
         onEntryClick = viewModel::onEntryClick,
-        onTimeBlockEntryClick = viewModel::onTimeBlockEntryClick,
-        onClearTimeBlockSelection = viewModel::clearTimeBlockSelection,
+        onTimeBlockEntryClick = {},
+        onClearTimeBlockSelection = {},
         onEntryLongPress = viewModel::onEntryLongPress,
         onExitSelectionMode = viewModel::exitSelectionMode,
-        onDismissContextMenu = viewModel::dismissContextMenu,
-        onContextMenuEdit = viewModel::onContextMenuEdit,
-        onContextMenuDelete = viewModel::onContextMenuDelete,
-        onContextMenuSplit = viewModel::onContextMenuSplit,
-        onDeleteConfirm = viewModel::onDeleteConfirm,
-        onDeleteCancel = viewModel::onDeleteCancel,
+        onDismissEntrySheet = viewModel::dismissEntrySheet,
+        onSaveEntryDraft = viewModel::onSaveDraft,
+        onDraftStartTimeChange = viewModel::onDraftStartTimeChange,
+        onDraftEndTimeChange = viewModel::onDraftEndTimeChange,
+        onDraftActivitySelect = viewModel::onDraftActivitySelect,
+        onDraftTagToggle = viewModel::onDraftTagToggle,
+        onDraftNoteChange = viewModel::onDraftNoteChange,
+        onMergeUp = viewModel::onMergeUp,
+        onMergeDown = viewModel::onMergeDown,
+        onDeleteFromSheet = viewModel::onDeleteFromSheet,
+        onSplitFromSheet = viewModel::onSplitFromSheet,
+        onBatchDelete = viewModel::onBatchDeleteRequest,
         onSplitConfirm = viewModel::onSplitConfirm,
         onSplitCancel = viewModel::onSplitCancel,
         onMergeRequest = viewModel::onMergeRequest,
@@ -174,17 +190,23 @@ private fun TimelineScreenContent(
     viewMode: TimelineViewMode,
     onViewModeChange: (TimelineViewMode) -> Unit,
     onRefresh: () -> Unit,
-    onEntryClick: (TimeEntry, Offset) -> Unit,
+    onEntryClick: (TimeEntry) -> Unit,
     onTimeBlockEntryClick: (TimeEntry) -> Unit,
     onClearTimeBlockSelection: () -> Unit,
     onEntryLongPress: (TimeEntry) -> Unit,
     onExitSelectionMode: () -> Unit,
-    onDismissContextMenu: () -> Unit,
-    onContextMenuEdit: (Long) -> Unit,
-    onContextMenuDelete: (TimeEntry) -> Unit,
-    onContextMenuSplit: (TimeEntry) -> Unit,
-    onDeleteConfirm: () -> Unit,
-    onDeleteCancel: () -> Unit,
+    onDismissEntrySheet: () -> Unit,
+    onSaveEntryDraft: () -> Unit,
+    onDraftStartTimeChange: (LocalTime) -> Unit,
+    onDraftEndTimeChange: (LocalTime) -> Unit,
+    onDraftActivitySelect: (Long) -> Unit,
+    onDraftTagToggle: (Long) -> Unit,
+    onDraftNoteChange: (String) -> Unit,
+    onMergeUp: () -> Unit,
+    onMergeDown: () -> Unit,
+    onDeleteFromSheet: () -> Unit,
+    onSplitFromSheet: () -> Unit,
+    onBatchDelete: () -> Unit,
     onSplitConfirm: (Instant) -> Unit,
     onSplitCancel: () -> Unit,
     onMergeRequest: () -> Unit,
@@ -223,21 +245,33 @@ private fun TimelineScreenContent(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        floatingActionButton = {
-            // Show merge FAB when in selection mode with 2+ items
-            AnimatedVisibility(
-                visible = uiState.isSelectionMode && uiState.selectedEntryIds.size >= 2,
-                enter = fadeIn() + slideInVertically { it },
-                exit = fadeOut() + slideOutVertically { it }
-            ) {
-                FloatingActionButton(
-                    onClick = onMergeRequest,
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.MergeType,
-                        contentDescription = "合并"
-                    )
+        bottomBar = {
+            if (uiState.isSelectionMode) {
+                Surface(tonalElevation = 2.dp) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = onBatchDelete,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("删除")
+                        }
+
+                        Button(
+                            onClick = onMergeRequest
+                        ) {
+                            Icon(Icons.Default.MergeType, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("合并")
+                        }
+                    }
                 }
             }
         }
@@ -330,12 +364,7 @@ private fun TimelineScreenContent(
                                                     entry = entry,
                                                     isSelected = entry.id in uiState.selectedEntryIds,
                                                     isSelectionMode = uiState.isSelectionMode,
-                                                    isContextMenuVisible = uiState.contextMenu?.entryId == entry.id,
-                                                    onDismissContextMenu = onDismissContextMenu,
-                                                    onEditClick = { onContextMenuEdit(entry.id) },
-                                                    onDeleteClick = { onContextMenuDelete(entry) },
-                                                    onSplitClick = { onContextMenuSplit(entry) },
-                                                    onClick = { tapOffset -> onEntryClick(entry, tapOffset) },
+                                                    onClick = { _ -> onEntryClick(entry) },
                                                     onLongClick = { onEntryLongPress(entry) },
                                                     modifier = Modifier.animateItem()
                                                 )
@@ -361,7 +390,7 @@ private fun TimelineScreenContent(
                             TimeBlockDayView(
                                 date = uiState.selectedDate,
                                 entries = entries,
-                                selectedEntryId = uiState.selectedTimeBlockEntry?.id,
+                                selectedEntryId = null,
                                 onEntryClick = onTimeBlockEntryClick,
                                 onEntryLongClick = onEntryLongPress,
                                 onEmptySlotClick = {},
@@ -390,14 +419,6 @@ private fun TimelineScreenContent(
             initialDate = uiState.selectedDate
         )
 
-        // Delete confirmation dialog
-        if (uiState.entryToDelete != null) {
-            DeleteConfirmationDialog(
-                entry = uiState.entryToDelete,
-                onConfirm = onDeleteConfirm,
-                onDismiss = onDeleteCancel
-            )
-        }
 
         // Split dialog
         if (uiState.entryToSplit != null) {
@@ -416,18 +437,28 @@ private fun TimelineScreenContent(
             )
         }
 
-        TimeEntryDetailSheet(
-            entry = uiState.selectedTimeBlockEntry,
-            onDismiss = onClearTimeBlockSelection,
-            onEdit = {
-                onClearTimeBlockSelection()
-                onContextMenuEdit(it)
-            },
-            onDelete = {
-                onClearTimeBlockSelection()
-                onContextMenuDelete(it)
-            }
-        )
+        val draft = uiState.sheetDraft
+        if (draft != null) {
+            TimelineEntryBottomSheet(
+                draft = draft,
+                activityTypes = uiState.activityTypes,
+                availableTags = uiState.availableTags,
+                canMergeUp = draft.adjacentUpEntryId != null,
+                canMergeDown = draft.adjacentDownEntryId != null,
+                onDismiss = onDismissEntrySheet,
+                onStartTimeChange = onDraftStartTimeChange,
+                onEndTimeChange = onDraftEndTimeChange,
+                onActivitySelect = onDraftActivitySelect,
+                onTagToggle = onDraftTagToggle,
+                onNoteChange = onDraftNoteChange,
+                onMergeUp = onMergeUp,
+                onMergeDown = onMergeDown,
+                onDelete = onDeleteFromSheet,
+                onSave = onSaveEntryDraft,
+                onSplit = onSplitFromSheet
+            )
+        }
+
     }
 }
 
@@ -620,33 +651,6 @@ private fun EmptyTimelineContent(
     }
 }
 
-/**
- * Delete confirmation dialog.
- */
-@Composable
-private fun DeleteConfirmationDialog(
-    entry: TimeEntry,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("删除记录") },
-        text = {
-            Text("确定要删除「${entry.activity.name}」的记录吗？此操作无法撤销。")
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("删除", color = MaterialTheme.colorScheme.error)
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
-}
 
 /**
  * Split time entry dialog.
@@ -799,17 +803,23 @@ private fun TimelineScreenPreview() {
             viewMode = TimelineViewMode.LIST,
             onViewModeChange = {},
             onRefresh = {},
-            onEntryClick = { _, _ -> },
+            onEntryClick = { _ -> },
             onTimeBlockEntryClick = {},
             onClearTimeBlockSelection = {},
             onEntryLongPress = {},
             onExitSelectionMode = {},
-            onDismissContextMenu = {},
-            onContextMenuEdit = {},
-            onContextMenuDelete = {},
-            onContextMenuSplit = {},
-            onDeleteConfirm = {},
-            onDeleteCancel = {},
+            onDismissEntrySheet = {},
+            onSaveEntryDraft = {},
+            onDraftStartTimeChange = {},
+            onDraftEndTimeChange = {},
+            onDraftActivitySelect = {},
+            onDraftTagToggle = {},
+            onDraftNoteChange = {},
+            onMergeUp = {},
+            onMergeDown = {},
+            onDeleteFromSheet = {},
+            onSplitFromSheet = {},
+            onBatchDelete = {},
             onSplitConfirm = {},
             onSplitCancel = {},
             onMergeRequest = {},
@@ -826,143 +836,6 @@ private fun TimelineScreenPreview() {
 }
 
 
-@Composable
-private fun TimeEntryDetailSheet(
-    entry: TimeEntry?,
-    onDismiss: () -> Unit,
-    onEdit: (Long) -> Unit,
-    onDelete: (TimeEntry) -> Unit
-) {
-    if (entry == null) return
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(onClick = onDismiss)
-            .background(Color.Black.copy(alpha = 0.32f))
-    ) {
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .clickable(enabled = false) {},
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .padding(24.dp)
-                    .fillMaxWidth()
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                                .background(
-                                    try {
-                                        Color(android.graphics.Color.parseColor(entry.activity.colorHex))
-                                    } catch (e: Exception) {
-                                        MaterialTheme.colorScheme.primary
-                                    }
-                                )
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = entry.activity.name,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "关闭")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                val duration = entry.durationMinutes
-                val hours = duration / 60
-                val mins = duration % 60
-                val durationText = if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
-                
-                val tz = TimeZone.currentSystemDefault()
-                val start = entry.startTime.toLocalDateTime(tz)
-                val end = entry.endTime.toLocalDateTime(tz)
-                val timeRange = String.format("%02d:%02d - %02d:%02d", start.hour, start.minute, end.hour, end.minute)
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "$timeRange ($durationText)",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                val note = entry.note
-                if (!note.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = note,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (entry.tags.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        entry.tags.forEach { tag ->
-                            AssistChip(
-                                onClick = {},
-                                label = { Text(tag.name) }
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                     Button(
-                        onClick = { onEdit(entry.id) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("编辑")
-                    }
-                    
-                    TextButton(
-                        onClick = { onDelete(entry) },
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("删除")
-                    }
-                }
-            }
-        }
-    }
-}
-
 @Preview(showBackground = true)
 @Composable
 private fun EmptyTimelinePreview() {
@@ -976,17 +849,23 @@ private fun EmptyTimelinePreview() {
             viewMode = TimelineViewMode.LIST,
             onViewModeChange = {},
             onRefresh = {},
-            onEntryClick = { _, _ -> },
+            onEntryClick = { _ -> },
             onTimeBlockEntryClick = {},
             onClearTimeBlockSelection = {},
             onEntryLongPress = {},
             onExitSelectionMode = {},
-            onDismissContextMenu = {},
-            onContextMenuEdit = {},
-            onContextMenuDelete = {},
-            onContextMenuSplit = {},
-            onDeleteConfirm = {},
-            onDeleteCancel = {},
+            onDismissEntrySheet = {},
+            onSaveEntryDraft = {},
+            onDraftStartTimeChange = {},
+            onDraftEndTimeChange = {},
+            onDraftActivitySelect = {},
+            onDraftTagToggle = {},
+            onDraftNoteChange = {},
+            onMergeUp = {},
+            onMergeDown = {},
+            onDeleteFromSheet = {},
+            onSplitFromSheet = {},
+            onBatchDelete = {},
             onSplitConfirm = {},
             onSplitCancel = {},
             onMergeRequest = {},
