@@ -54,6 +54,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.testTag
@@ -63,8 +65,7 @@ import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
 import kotlinx.datetime.LocalTime
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import androidx.compose.runtime.snapshotFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -242,12 +243,14 @@ private fun TimeEditorSection(
                 label = "开始",
                 selected = startTime,
                 onSelected = onStartTimeChange,
+                testTagPrefix = "start",
                 modifier = Modifier.weight(1f)
             )
             TimeWheel(
                 label = "结束",
                 selected = endTime,
                 onSelected = onEndTimeChange,
+                testTagPrefix = "end",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -274,33 +277,44 @@ private fun TimeWheel(
     label: String,
     selected: LocalTime,
     onSelected: (LocalTime) -> Unit,
+    testTagPrefix: String,
     modifier: Modifier = Modifier
 ) {
-    val selectedMinutes = selected.hour * 60 + selected.minute
-    val state = rememberLazyListState(initialFirstVisibleItemIndex = selectedMinutes)
-    val flingBehavior = rememberSnapFlingBehavior(lazyListState = state)
+    val hours = (0..23).toList()
+    val minutes = (0..59).toList()
 
-    val centeredIndex by remember {
-        derivedStateOf {
-            val layout = state.layoutInfo
-            val viewportCenter = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
-            layout.visibleItemsInfo
-                .minByOrNull { item ->
-                    val itemCenter = item.offset + item.size / 2
-                    kotlin.math.abs(itemCenter - viewportCenter)
-                }
-                ?.index
-        }
+    val hourState = rememberLazyListState(initialFirstVisibleItemIndex = selected.hour)
+    val minuteState = rememberLazyListState(initialFirstVisibleItemIndex = selected.minute)
+
+    val hourFlingBehavior = rememberSnapFlingBehavior(lazyListState = hourState)
+    val minuteFlingBehavior = rememberSnapFlingBehavior(lazyListState = minuteState)
+
+    fun centeredIndex(state: LazyListState): Int? {
+        val layout = state.layoutInfo
+        val viewportCenter = (layout.viewportStartOffset + layout.viewportEndOffset) / 2
+        return layout.visibleItemsInfo
+            .minByOrNull { item ->
+                val itemCenter = item.offset + item.size / 2
+                kotlin.math.abs(itemCenter - viewportCenter)
+            }
+            ?.index
     }
 
-    LaunchedEffect(state) {
-        snapshotFlow { centeredIndex }
-            .filterNotNull()
-            .distinctUntilChanged()
-            .map { idx ->
-                val minutesOfDay = idx.coerceIn(0, 24 * 60 - 1)
-                LocalTime(minutesOfDay / 60, minutesOfDay % 60)
+    val centeredHourIndex by remember {
+        derivedStateOf { centeredIndex(hourState) }
+    }
+    val centeredMinuteIndex by remember {
+        derivedStateOf { centeredIndex(minuteState) }
+    }
+
+    LaunchedEffect(hourState, minuteState) {
+        snapshotFlow { centeredHourIndex to centeredMinuteIndex }
+            .mapNotNull { (hIdx, mIdx) ->
+                val hour = hIdx?.coerceIn(0, 23) ?: return@mapNotNull null
+                val minute = mIdx?.coerceIn(0, 59) ?: return@mapNotNull null
+                LocalTime(hour, minute)
             }
+            .distinctUntilChanged()
             .collect { onSelected(it) }
     }
 
@@ -318,25 +332,30 @@ private fun TimeWheel(
                 .height(120.dp)
                 .fillMaxWidth()
         ) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                state = state,
-                flingBehavior = flingBehavior,
-                contentPadding = PaddingValues(vertical = 36.dp)
-            ) {
-                items(24 * 60) { idx ->
-                    val h = idx / 60
-                    val m = idx % 60
-                    val isActive = idx == selectedMinutes
-                    Text(
-                        text = String.format("%02d:%02d", h, m),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 6.dp),
-                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
-                        color = if (isActive) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Row(modifier = Modifier.fillMaxSize()) {
+                WheelColumn(
+                    values = hours,
+                    selectedValue = selected.hour,
+                    state = hourState,
+                    flingBehavior = hourFlingBehavior,
+                    formatValue = { String.format("%02d", it) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("${testTagPrefix}HourWheel")
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                WheelColumn(
+                    values = minutes,
+                    selectedValue = selected.minute,
+                    state = minuteState,
+                    flingBehavior = minuteFlingBehavior,
+                    formatValue = { String.format("%02d", it) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("${testTagPrefix}MinuteWheel")
+                )
             }
 
             Box(
@@ -349,6 +368,54 @@ private fun TimeWheel(
                         shape = RoundedCornerShape(8.dp)
                     )
             )
+        }
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            text = String.format("%02d:%02d", selected.hour, selected.minute),
+            modifier = Modifier.testTag("${testTagPrefix}SelectedTimeText"),
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun WheelColumn(
+    values: List<Int>,
+    selectedValue: Int,
+    state: LazyListState,
+    flingBehavior: FlingBehavior,
+    formatValue: (Int) -> String,
+    modifier: Modifier = Modifier
+) {
+    LazyColumn(
+        modifier = modifier,
+        state = state,
+        flingBehavior = flingBehavior,
+        contentPadding = PaddingValues(vertical = 42.dp)
+    ) {
+        items(values.size) { idx ->
+            val value = values[idx]
+            val isActive = value == selectedValue
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = formatValue(value),
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = if (isActive) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.maplume.blockwise.feature.timeentry.presentation.timeline
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsDisplayed
@@ -9,6 +10,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToIndex
+import androidx.compose.ui.test.assertTextEquals
 import org.junit.Assert.assertFalse
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
@@ -103,13 +107,16 @@ class TimelineQuickCreateFabTest {
         var createInvoked = false
         var showSheet by mutableStateOf(false)
 
+        var startTime by mutableStateOf(kotlinx.datetime.LocalTime(10, 0))
+        var endTime by mutableStateOf(kotlinx.datetime.LocalTime(10, 0))
+
         fun makeUiState(): TimelineUiState {
             val draft = if (showSheet) {
                 TimeEntryDraft(
                     entryId = 0L,
                     baseDate = today,
-                    startTime = kotlinx.datetime.LocalTime(10, 0),
-                    endTime = kotlinx.datetime.LocalTime(10, 0),
+                    startTime = startTime,
+                    endTime = endTime,
                     activityId = 1L,
                     tagIds = emptySet(),
                     note = "",
@@ -145,8 +152,8 @@ class TimelineQuickCreateFabTest {
                     onDismissEntrySheet = { showSheet = false },
                     onSaveEntryDraft = {},
                     onCreateFromSheet = { createInvoked = true },
-                    onDraftStartTimeChange = {},
-                    onDraftEndTimeChange = {},
+                    onDraftStartTimeChange = { startTime = it },
+                    onDraftEndTimeChange = { endTime = it },
                     onDraftActivitySelect = {},
                     onDraftTagToggle = {},
                     onDraftNoteChange = {},
@@ -178,6 +185,27 @@ class TimelineQuickCreateFabTest {
             showSheet = true
         }
         composeTestRule.waitForIdle()
+        composeTestRule.mainClock.advanceTimeBy(2_000)
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("timelineCreateEntrySheet").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("startHourWheel").performScrollTo()
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("startHourWheel").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("startMinuteWheel").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("endHourWheel").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("endMinuteWheel").assertIsDisplayed()
+
+        composeTestRule.onNodeWithTag("startSelectedTimeText").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("startSelectedTimeText").assertTextEquals("10:00")
+
+        composeTestRule.onNodeWithTag("startMinuteWheel").performScrollToIndex(1)
+        composeTestRule.waitForIdle()
+        composeTestRule.mainClock.advanceTimeBy(2_000)
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("startSelectedTimeText").assertTextEquals("10:01")
 
         composeTestRule.onNodeWithText("结束时间需晚于起始时间").assertIsDisplayed()
         composeTestRule.onNodeWithText("创建").assertIsNotEnabled()
