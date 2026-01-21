@@ -8,6 +8,7 @@ import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.core.domain.model.TimeEntryInput
 import com.maplume.blockwise.feature.timeentry.domain.usecase.activitytype.GetActivityTypesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.tag.GetTagsUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.CreateTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.DeleteTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.GetTimeEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.UpdateTimeEntryUseCase
@@ -40,6 +41,40 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
+enum class TimelineEntrySheetMode {
+    EDIT,
+    CREATE
+}
+
+internal data class TimelineCreatePrefill(
+    val baseDate: LocalDate,
+    val startTime: LocalTime,
+    val endTime: LocalTime
+)
+
+internal fun defaultPrefillForSelectedTimelineDate(
+    selectedDate: LocalDate,
+    now: Instant,
+    timeZone: TimeZone
+): TimelineCreatePrefill {
+    val nowLocal = now.toLocalDateTime(timeZone)
+    val today = nowLocal.date
+
+    val baseDate = if (selectedDate == today) {
+        today
+    } else {
+        selectedDate
+    }
+
+    val alignedTime = LocalTime(nowLocal.hour, nowLocal.minute)
+
+    return TimelineCreatePrefill(
+        baseDate = baseDate,
+        startTime = alignedTime,
+        endTime = alignedTime
+    )
+}
+
 data class TimelineUiState(
     val selectedDate: LocalDate = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault()).date,
@@ -52,10 +87,11 @@ data class TimelineUiState(
     val showMergeConfirmation: Boolean = false,
     val showDatePicker: Boolean = false,
     val sheetDraft: TimeEntryDraft? = null,
+    val sheetMode: TimelineEntrySheetMode = TimelineEntrySheetMode.EDIT,
     val activityTypes: List<ActivityType> = emptyList(),
     val availableTags: List<Tag> = emptyList(),
     val hiddenEntryIds: Set<Long> = emptySet()
-) {
+) { 
     val weekStartDate: LocalDate
         get() {
             val daysFromMonday = selectedDate.dayOfWeek.ordinal
@@ -107,6 +143,7 @@ private data class PendingDelete(
 @HiltViewModel
 class TimelineViewModel @Inject constructor(
     private val getTimeEntries: GetTimeEntriesUseCase,
+    private val createTimeEntry: CreateTimeEntryUseCase,
     private val deleteTimeEntry: DeleteTimeEntryUseCase,
     private val splitTimeEntry: SplitTimeEntryUseCase,
     private val mergeTimeEntries: MergeTimeEntriesUseCase,
@@ -230,8 +267,74 @@ class TimelineViewModel @Inject constructor(
         openEntrySheet(entry.id)
     }
 
+    fun onQuickCreate() {
+        val state = _uiState.value
+        val now = Clock.System.now()
+        val tz = TimeZone.currentSystemDefault()
+
+        val prefill = defaultPrefillForSelectedTimelineDate(
+            selectedDate = state.selectedDate,
+            now = now,
+            timeZone = tz
+        )
+
+        _uiState.update {
+            it.copy(
+                sheetMode = TimelineEntrySheetMode.CREATE,
+                sheetDraft = TimeEntryDraft(
+                    entryId = 0L,
+                    baseDate = prefill.baseDate,
+                    startTime = prefill.startTime,
+                    endTime = prefill.endTime,
+                    activityId = it.activityTypes.firstOrNull()?.id ?: 0L,
+                    tagIds = emptySet(),
+                    note = "",
+                    adjacentUpEntryId = null,
+                    adjacentDownEntryId = null
+                )
+            )
+        }
+    }
+
+    fun onCreateFromSheet() {
+        val draft = _uiState.value.sheetDraft ?: return
+        if (_uiState.value.sheetMode != TimelineEntrySheetMode.CREATE) return
+
+        if (draft.endTime <= draft.startTime) return
+
+        val tz = TimeZone.currentSystemDefault()
+        val startInstant = draft.baseDate.atTime(draft.startTime).toInstant(tz)
+        var endInstant = draft.baseDate.atTime(draft.endTime).toInstant(tz)
+        if (endInstant <= startInstant) {
+
+            endInstant = endInstant.plus(1, DateTimeUnit.DAY, tz)
+        }
+
+        val input = TimeEntryInput(
+            activityId = draft.activityId,
+            startTime = startInstant,
+            endTime = endInstant,
+            note = draft.note.takeIf { it.isNotBlank() },
+            tagIds = draft.tagIds.toList()
+        )
+
+        viewModelScope.launch {
+            val result = createTimeEntry(input)
+            result.fold(
+                onSuccess = {
+                    dismissEntrySheet()
+                    refresh()
+                },
+                onFailure = { error ->
+                    _events.emit(TimelineEvent.Error(error.message ?: "创建失败"))
+                }
+            )
+        }
+    }
+
+
     fun dismissEntrySheet() {
-        _uiState.update { it.copy(sheetDraft = null) }
+        _uiState.update { it.copy(sheetDraft = null, sheetMode = TimelineEntrySheetMode.EDIT) }
     }
 
     fun onEntryLongPress(entry: TimeEntry) {

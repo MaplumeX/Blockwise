@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MergeType
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarViewDay
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Today
@@ -45,6 +46,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,6 +74,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -157,6 +160,7 @@ fun TimelineScreen(
         onExitSelectionMode = viewModel::exitSelectionMode,
         onDismissEntrySheet = viewModel::dismissEntrySheet,
         onSaveEntryDraft = viewModel::onSaveDraft,
+        onCreateFromSheet = viewModel::onCreateFromSheet,
         onDraftStartTimeChange = viewModel::onDraftStartTimeChange,
         onDraftEndTimeChange = viewModel::onDraftEndTimeChange,
         onDraftActivitySelect = viewModel::onDraftActivitySelect,
@@ -173,6 +177,7 @@ fun TimelineScreen(
         onMergeConfirm = viewModel::onMergeConfirm,
         onMergeCancel = viewModel::onMergeCancel,
         onCreateFromGap = onNavigateToCreateFromGap,
+        onCreateEntry = viewModel::onQuickCreate,
         onNavigateWeek = viewModel::navigateWeek,
         onNavigateToToday = viewModel::navigateToToday,
         onDateSelect = viewModel::setSelectedDate,
@@ -184,7 +189,7 @@ fun TimelineScreen(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun TimelineScreenContent(
+internal fun TimelineScreenContent(
     uiState: TimelineUiState,
     snackbarHostState: SnackbarHostState,
     viewMode: TimelineViewMode,
@@ -197,6 +202,7 @@ private fun TimelineScreenContent(
     onExitSelectionMode: () -> Unit,
     onDismissEntrySheet: () -> Unit,
     onSaveEntryDraft: () -> Unit,
+    onCreateFromSheet: () -> Unit,
     onDraftStartTimeChange: (LocalTime) -> Unit,
     onDraftEndTimeChange: (LocalTime) -> Unit,
     onDraftActivitySelect: (Long) -> Unit,
@@ -213,6 +219,7 @@ private fun TimelineScreenContent(
     onMergeConfirm: () -> Unit,
     onMergeCancel: () -> Unit,
     onCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
+    onCreateEntry: () -> Unit,
     onNavigateWeek: (Int) -> Unit,
     onNavigateToToday: () -> Unit,
     onDateSelect: (LocalDate) -> Unit,
@@ -272,6 +279,16 @@ private fun TimelineScreenContent(
                             Text("合并")
                         }
                     }
+                }
+            }
+        },
+        floatingActionButton = {
+            if (viewMode == TimelineViewMode.LIST && !uiState.isSelectionMode) {
+                FloatingActionButton(
+                    onClick = onCreateEntry,
+                    modifier = Modifier.testTag("timelineQuickCreateFab")
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "添加时间记录")
                 }
             }
         }
@@ -439,12 +456,14 @@ private fun TimelineScreenContent(
 
         val draft = uiState.sheetDraft
         if (draft != null) {
+            val isCreateMode = uiState.sheetMode == TimelineEntrySheetMode.CREATE
             TimelineEntryBottomSheet(
                 draft = draft,
                 activityTypes = uiState.activityTypes,
                 availableTags = uiState.availableTags,
                 canMergeUp = draft.adjacentUpEntryId != null,
                 canMergeDown = draft.adjacentDownEntryId != null,
+                isCreateMode = isCreateMode,
                 onDismiss = onDismissEntrySheet,
                 onStartTimeChange = onDraftStartTimeChange,
                 onEndTimeChange = onDraftEndTimeChange,
@@ -454,7 +473,7 @@ private fun TimelineScreenContent(
                 onMergeUp = onMergeUp,
                 onMergeDown = onMergeDown,
                 onDelete = onDeleteFromSheet,
-                onSave = onSaveEntryDraft,
+                onSave = if (isCreateMode) onCreateFromSheet else onSaveEntryDraft,
                 onSplit = onSplitFromSheet
             )
         }
@@ -810,7 +829,10 @@ private fun TimelineScreenPreview() {
             onExitSelectionMode = {},
             onDismissEntrySheet = {},
             onSaveEntryDraft = {},
+            onCreateFromSheet = {},
             onDraftStartTimeChange = {},
+
+
             onDraftEndTimeChange = {},
             onDraftActivitySelect = {},
             onDraftTagToggle = {},
@@ -826,52 +848,7 @@ private fun TimelineScreenPreview() {
             onMergeConfirm = {},
             onMergeCancel = {},
             onCreateFromGap = { _, _ -> },
-            onNavigateWeek = {},
-            onNavigateToToday = {},
-            onDateSelect = {},
-            onShowDatePicker = {},
-            onHideDatePicker = {}
-        )
-    }
-}
-
-
-@Preview(showBackground = true)
-@Composable
-private fun EmptyTimelinePreview() {
-    BlockwiseTheme {
-        TimelineScreenContent(
-            uiState = TimelineUiState(
-                dayGroups = emptyList(),
-                isLoading = false
-            ),
-            snackbarHostState = SnackbarHostState(),
-            viewMode = TimelineViewMode.LIST,
-            onViewModeChange = {},
-            onRefresh = {},
-            onEntryClick = { _ -> },
-            onTimeBlockEntryClick = {},
-            onClearTimeBlockSelection = {},
-            onEntryLongPress = {},
-            onExitSelectionMode = {},
-            onDismissEntrySheet = {},
-            onSaveEntryDraft = {},
-            onDraftStartTimeChange = {},
-            onDraftEndTimeChange = {},
-            onDraftActivitySelect = {},
-            onDraftTagToggle = {},
-            onDraftNoteChange = {},
-            onMergeUp = {},
-            onMergeDown = {},
-            onDeleteFromSheet = {},
-            onSplitFromSheet = {},
-            onBatchDelete = {},
-            onSplitConfirm = {},
-            onSplitCancel = {},
-            onMergeRequest = {},
-            onMergeConfirm = {},
-            onMergeCancel = {},
-            onCreateFromGap = { _, _ -> },
+            onCreateEntry = {},
             onNavigateWeek = {},
             onNavigateToToday = {},
             onDateSelect = {},

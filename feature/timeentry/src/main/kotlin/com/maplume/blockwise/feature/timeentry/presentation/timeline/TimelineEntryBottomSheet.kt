@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -74,6 +75,7 @@ internal fun TimelineEntryBottomSheet(
     availableTags: List<Tag>,
     canMergeUp: Boolean,
     canMergeDown: Boolean,
+    isCreateMode: Boolean = false,
     onDismiss: () -> Unit,
     onStartTimeChange: (LocalTime) -> Unit,
     onEndTimeChange: (LocalTime) -> Unit,
@@ -102,7 +104,7 @@ internal fun TimelineEntryBottomSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = halfHeight, max = halfHeight)
-                .testTag("timelineEntrySheet"),
+                .testTag(if (isCreateMode) "timelineCreateEntrySheet" else "timelineEntrySheet"),
             tonalElevation = 0.dp
         ) {
             if (showActivitySelector) {
@@ -121,6 +123,7 @@ internal fun TimelineEntryBottomSheet(
                 TopIconRow(
                     canMergeUp = canMergeUp,
                     canMergeDown = canMergeDown,
+                    isCreateMode = isCreateMode,
                     onMergeUp = onMergeUp,
                     onMergeDown = onMergeDown,
                     onDelete = onDelete,
@@ -140,6 +143,7 @@ internal fun TimelineEntryBottomSheet(
                         startTime = draft.startTime,
                         endTime = draft.endTime,
                         durationMinutes = draft.durationMinutes,
+                        isCreateMode = isCreateMode,
                         onStartTimeChange = onStartTimeChange,
                         onEndTimeChange = onEndTimeChange
                     )
@@ -166,6 +170,8 @@ internal fun TimelineEntryBottomSheet(
                 HorizontalDivider()
 
                 BottomActionRow(
+                    isCreateMode = isCreateMode,
+                    isValid = if (isCreateMode) draft.endTime > draft.startTime else true,
                     onSave = onSave,
                     onSplit = onSplit
                 )
@@ -178,6 +184,7 @@ internal fun TimelineEntryBottomSheet(
 private fun TopIconRow(
     canMergeUp: Boolean,
     canMergeDown: Boolean,
+    isCreateMode: Boolean,
     onMergeUp: () -> Unit,
     onMergeDown: () -> Unit,
     onDelete: () -> Unit,
@@ -191,18 +198,20 @@ private fun TopIconRow(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onMergeUp, enabled = canMergeUp) {
-                Icon(Icons.Default.ArrowUpward, contentDescription = "合并上一条")
-            }
-            IconButton(onClick = onMergeDown, enabled = canMergeDown) {
-                Icon(Icons.Default.ArrowDownward, contentDescription = "合并下一条")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.error
-                )
+            if (!isCreateMode) {
+                IconButton(onClick = onMergeUp, enabled = canMergeUp) {
+                    Icon(Icons.Default.ArrowUpward, contentDescription = "合并上一条")
+                }
+                IconButton(onClick = onMergeDown, enabled = canMergeDown) {
+                    Icon(Icons.Default.ArrowDownward, contentDescription = "合并下一条")
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
 
@@ -217,6 +226,7 @@ private fun TimeEditorSection(
     startTime: LocalTime,
     endTime: LocalTime,
     durationMinutes: Int,
+    isCreateMode: Boolean,
     onStartTimeChange: (LocalTime) -> Unit,
     onEndTimeChange: (LocalTime) -> Unit
 ) {
@@ -242,11 +252,19 @@ private fun TimeEditorSection(
             )
         }
 
-        Text(
-            text = "时长：${formatDurationMinutes(durationMinutes)}",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
+        if (isCreateMode && endTime <= startTime) {
+            Text(
+                text = "结束时间需晚于起始时间",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            Text(
+                text = "时长：${formatDurationMinutes(durationMinutes)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
@@ -513,6 +531,8 @@ private fun NoteSection(
 
 @Composable
 private fun BottomActionRow(
+    isCreateMode: Boolean,
+    isValid: Boolean,
     onSave: () -> Unit,
     onSplit: () -> Unit
 ) {
@@ -525,21 +545,24 @@ private fun BottomActionRow(
     ) {
         Button(
             onClick = onSave,
+            enabled = isValid,
             modifier = Modifier.weight(1f)
         ) {
-            Icon(Icons.Default.Save, contentDescription = null)
+            Icon(if (isCreateMode) Icons.Default.Add else Icons.Default.Save, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("保存")
+            Text(if (isCreateMode) "创建" else "保存")
         }
 
-        Button(
-            onClick = onSplit,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
-        ) {
-            Icon(Icons.Default.CallSplit, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("拆分")
+        if (!isCreateMode) {
+            Button(
+                onClick = onSplit,
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+            ) {
+                Icon(Icons.Default.CallSplit, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("拆分")
+            }
         }
     }
 }
