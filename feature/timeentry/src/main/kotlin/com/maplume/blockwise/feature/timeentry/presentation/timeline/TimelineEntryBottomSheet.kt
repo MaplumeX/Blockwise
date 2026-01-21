@@ -143,7 +143,7 @@ internal fun TimelineEntryBottomSheet(
                     TimeEditorSection(
                         startTime = draft.startTime,
                         endTime = draft.endTime,
-                        durationMinutes = draft.durationMinutes,
+                        durationSeconds = draft.durationSeconds,
                         isCreateMode = isCreateMode,
                         onStartTimeChange = onStartTimeChange,
                         onEndTimeChange = onEndTimeChange
@@ -226,7 +226,7 @@ private fun TopIconRow(
 private fun TimeEditorSection(
     startTime: LocalTime,
     endTime: LocalTime,
-    durationMinutes: Int,
+    durationSeconds: Int,
     isCreateMode: Boolean,
     onStartTimeChange: (LocalTime) -> Unit,
     onEndTimeChange: (LocalTime) -> Unit
@@ -263,7 +263,7 @@ private fun TimeEditorSection(
             )
         } else {
             Text(
-                text = "时长：${formatDurationMinutes(durationMinutes)}",
+                text = "时长：${formatDurationSeconds(durationSeconds)}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -634,13 +634,21 @@ private fun BottomActionRow(
     }
 }
 
-private fun formatDurationMinutes(minutes: Int): String {
-    val h = minutes / 60
-    val m = minutes % 60
+private fun formatDurationSeconds(seconds: Int): String {
+    if (seconds <= 0) return "0秒"
+
+    val h = seconds / 3600
+    val m = (seconds % 3600) / 60
+    val s = seconds % 60
+
     return when {
+        h > 0 && m > 0 && s > 0 -> "${h}小时${m}分钟${s}秒"
         h > 0 && m > 0 -> "${h}小时${m}分钟"
+        h > 0 && s > 0 -> "${h}小时${s}秒"
         h > 0 -> "${h}小时"
-        else -> "${m}分钟"
+        m > 0 && s > 0 -> "${m}分钟${s}秒"
+        m > 0 -> "${m}分钟"
+        else -> "${s}秒"
     }
 }
 

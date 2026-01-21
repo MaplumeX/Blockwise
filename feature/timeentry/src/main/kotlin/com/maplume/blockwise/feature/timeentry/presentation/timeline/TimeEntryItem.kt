@@ -280,7 +280,16 @@ private fun formatTimeRange(entry: TimeEntry): String {
     val endLocal = entry.endTime.toLocalDateTime(tz)
 
     val startStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
-    val endStr = String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+
+    val endStr = if (
+        endLocal.hour == 0 &&
+            endLocal.minute == 0 &&
+            endLocal.date.toEpochDays() == startLocal.date.toEpochDays() + 1
+    ) {
+        "24:00"
+    } else {
+        String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+    }
 
     return "$startStr - $endStr"
 }

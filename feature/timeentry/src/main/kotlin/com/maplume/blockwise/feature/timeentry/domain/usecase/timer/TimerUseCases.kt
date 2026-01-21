@@ -117,9 +117,8 @@ class StopTimerUseCase @Inject constructor(
                 tagIds = result.tagIds
             )
 
-            // Validate minimum duration (at least 1 minute)
-            if (result.durationMinutes < 1) {
-                return Result.failure(IllegalArgumentException("计时时长不足1分钟，记录未保存"))
+            if (result.endTime <= result.startTime) {
+                return Result.failure(IllegalArgumentException("计时时长不足1秒，记录未保存"))
             }
 
             val entryId = timeEntryRepository.create(input)

@@ -233,7 +233,7 @@ class MergeTimeEntriesUseCase @Inject constructor(
             val current = sortedEntries[i]
             val next = sortedEntries[i + 1]
             val gapMillis = next.startTime.toEpochMilliseconds() - current.endTime.toEpochMilliseconds()
-            if (gapMillis > 60000) { // More than 1 minute gap
+            if (gapMillis > 60_000) { // More than 1 minute gap
                 return Result.failure(IllegalArgumentException("只能合并相邻的记录（间隔不超过1分钟）"))
             }
         }

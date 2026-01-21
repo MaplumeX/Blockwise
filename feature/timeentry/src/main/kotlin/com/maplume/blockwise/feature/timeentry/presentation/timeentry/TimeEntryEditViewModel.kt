@@ -111,11 +111,13 @@ class TimeEntryEditViewModel @Inject constructor(
             val tz = TimeZone.currentSystemDefault()
             val nowDateTime = now.toLocalDateTime(tz)
 
+            val alignedTime = LocalTime(nowDateTime.hour, nowDateTime.minute)
+
             _uiState.update {
                 it.copy(
                     selectedDate = nowDateTime.date,
-                    startTime = nowDateTime.time,
-                    endTime = nowDateTime.time
+                    startTime = alignedTime,
+                    endTime = alignedTime
                 )
             }
         }
@@ -145,25 +147,43 @@ class TimeEntryEditViewModel @Inject constructor(
         }
     }
 
-    /**
-     * Update start time.
-     */
+
     fun onStartTimeChange(time: LocalTime) {
-        _uiState.update {
-            it.copy(
-                startTime = time,
+        _uiState.update { state ->
+            val existing = state.startTime
+            val resolved = if (
+                existing != null &&
+                    time.second == 0 &&
+                    time.nanosecond == 0
+            ) {
+                LocalTime(time.hour, time.minute, existing.second, existing.nanosecond)
+            } else {
+                time
+            }
+
+            state.copy(
+                startTime = resolved,
                 timeError = null
             )
         }
     }
 
-    /**
-     * Update end time.
-     */
+
     fun onEndTimeChange(time: LocalTime) {
-        _uiState.update {
-            it.copy(
-                endTime = time,
+        _uiState.update { state ->
+            val existing = state.endTime
+            val resolved = if (
+                existing != null &&
+                    time.second == 0 &&
+                    time.nanosecond == 0
+            ) {
+                LocalTime(time.hour, time.minute, existing.second, existing.nanosecond)
+            } else {
+                time
+            }
+
+            state.copy(
+                endTime = resolved,
                 timeError = null
             )
         }

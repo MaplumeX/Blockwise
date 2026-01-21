@@ -29,9 +29,6 @@ class UpdateTimeEntryUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("结束时间必须晚于开始时间"))
         }
 
-        if (input.durationMinutes <= 0) {
-            return Result.failure(IllegalArgumentException("时长必须大于0"))
-        }
 
         if (input.durationMinutes > MAX_DURATION_MINUTES) {
             return Result.failure(

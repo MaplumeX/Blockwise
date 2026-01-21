@@ -14,7 +14,7 @@ import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Unit tests for CreateTimeEntryUseCase.
@@ -217,13 +217,13 @@ class CreateTimeEntryUseCaseTest {
         }
 
         @Test
-        @DisplayName("very short duration of 1 minute succeeds")
-        fun `very short duration of 1 minute succeeds`() = runTest {
+        @DisplayName("very short duration of 1 second succeeds")
+        fun `very short duration of 1 second succeeds`() = runTest {
             // Given
             val now = Clock.System.now()
             val input = TimeEntryInput(
                 activityId = 1,
-                startTime = now.minus(1.minutes),
+                startTime = now.minus(1.seconds),
                 endTime = now,
                 note = null,
                 tagIds = emptyList()
@@ -234,6 +234,26 @@ class CreateTimeEntryUseCaseTest {
 
             // Then
             assertTrue(result.isSuccess)
+        }
+
+        @Test
+        @DisplayName("very short duration of 0 seconds fails")
+        fun `very short duration of 0 seconds fails`() = runTest {
+            // Given
+            val now = Clock.System.now()
+            val input = TimeEntryInput(
+                activityId = 1,
+                startTime = now,
+                endTime = now,
+                note = null,
+                tagIds = emptyList()
+            )
+
+            // When
+            val result = useCase(input)
+
+            // Then
+            assertTrue(result.isFailure)
         }
     }
 

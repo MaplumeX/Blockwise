@@ -63,5 +63,5 @@ data class TimerResult(
         get() = endTime.toEpochMilliseconds() - startTime.toEpochMilliseconds()
 
     val durationMinutes: Int
-        get() = (durationMillis / 60000).toInt()
+        get() = (durationMillis / 60_000).toInt()
 }

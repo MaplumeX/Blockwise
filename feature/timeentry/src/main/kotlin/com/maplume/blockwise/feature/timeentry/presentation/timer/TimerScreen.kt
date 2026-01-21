@@ -467,11 +467,13 @@ private fun formatDurationForDialog(millis: Long): String {
     val totalSeconds = millis / 1000
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
 
     return when {
         hours > 0 -> "${hours}小时${minutes}分钟"
         minutes > 0 -> "${minutes}分钟"
-        else -> "不足1分钟"
+        totalSeconds > 0 -> "${seconds}秒"
+        else -> "不足1秒"
     }
 }
 

@@ -110,14 +110,16 @@ data class TimeEntryDraft(
     val adjacentUpEntryId: Long?,
     val adjacentDownEntryId: Long?
 ) {
-    val durationMinutes: Int
+    val durationSeconds: Int
         get() {
-            val startMinutes = startTime.hour * 60 + startTime.minute
-            var endMinutes = endTime.hour * 60 + endTime.minute
-            if (endMinutes <= startMinutes) {
-                endMinutes += 24 * 60
+            val startSeconds = startTime.hour * 3600 + startTime.minute * 60 + startTime.second
+            var endSeconds = endTime.hour * 3600 + endTime.minute * 60 + endTime.second
+
+            if (endSeconds <= startSeconds) {
+                endSeconds += 24 * 3600
             }
-            return endMinutes - startMinutes
+
+            return endSeconds - startSeconds
         }
 }
 
@@ -385,14 +387,28 @@ class TimelineViewModel @Inject constructor(
     fun onDraftStartTimeChange(time: LocalTime) {
         _uiState.update { state ->
             val draft = state.sheetDraft ?: return
-            state.copy(sheetDraft = draft.copy(startTime = time))
+
+            val resolved = if (time.second == 0 && time.nanosecond == 0) {
+                LocalTime(time.hour, time.minute, draft.startTime.second, draft.startTime.nanosecond)
+            } else {
+                time
+            }
+
+            state.copy(sheetDraft = draft.copy(startTime = resolved))
         }
     }
 
     fun onDraftEndTimeChange(time: LocalTime) {
         _uiState.update { state ->
             val draft = state.sheetDraft ?: return
-            state.copy(sheetDraft = draft.copy(endTime = time))
+
+            val resolved = if (time.second == 0 && time.nanosecond == 0) {
+                LocalTime(time.hour, time.minute, draft.endTime.second, draft.endTime.nanosecond)
+            } else {
+                time
+            }
+
+            state.copy(sheetDraft = draft.copy(endTime = resolved))
         }
     }
 
