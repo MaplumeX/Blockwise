@@ -183,10 +183,11 @@ class TimelineViewModel @Inject constructor(
         }
     }
 
-    private fun loadEntries() {
-        loadJob?.cancel()
-        loadJob = viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
+     private fun loadEntries() {
+         _uiState.update { it.copy(isLoading = true) }
+         loadJob?.cancel()
+         loadJob = viewModelScope.launch {
+
 
             val weekStart = _uiState.value.weekStartDate
             val weekEnd = weekStart.plus(7, DateTimeUnit.DAY)

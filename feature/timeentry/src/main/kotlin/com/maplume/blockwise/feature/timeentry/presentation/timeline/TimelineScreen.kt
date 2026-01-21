@@ -352,57 +352,61 @@ internal fun TimelineScreenContent(
                         modifier = Modifier.fillMaxSize()
                     ) {
                         if (viewMode == TimelineViewMode.LIST) {
-                            LazyColumn(
-                                state = listState,
-                                contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(0.dp)
-                            ) {
-                                uiState.dayGroups.forEach { dayGroup ->
-                                    stickyHeader(key = "header_${dayGroup.date}") {
-                                        StickyDateGroupHeader(
-                                            date = dayGroup.date,
-                                            totalMinutes = dayGroup.totalMinutes
-                                        )
-                                    }
+                             val selectedDayGroup = uiState.dayGroups.firstOrNull { it.date == uiState.selectedDate }
+                             if (selectedDayGroup == null) {
+                                 EmptyTimelineContent(modifier = Modifier.fillMaxSize())
+                             } else {
+                                 LazyColumn(
+                                     state = listState,
+                                     contentPadding = PaddingValues(16.dp),
+                                     verticalArrangement = Arrangement.spacedBy(0.dp)
+                                 ) {
+                                     stickyHeader(key = "header_${selectedDayGroup.date}") {
+                                         StickyDateGroupHeader(
+                                             date = selectedDayGroup.date,
+                                             totalMinutes = selectedDayGroup.totalMinutes
+                                         )
+                                     }
+ 
+                                     items(
+                                         items = selectedDayGroup.items,
+                                         key = { item ->
+                                             when (item) {
+                                                 is TimelineItem.Entry -> "entry-${item.entry.id}"
+                                                 is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
+                                             }
+                                         }
+                                     ) { item ->
+                                         when (item) {
+                                             is TimelineItem.Entry -> {
+                                                 val entry = item.entry
+                                                 TimeEntryItem(
+                                                     entry = entry,
+                                                     isSelected = entry.id in uiState.selectedEntryIds,
+                                                     isSelectionMode = uiState.isSelectionMode,
+                                                     onClick = { _ -> onEntryClick(entry) },
+                                                     onLongClick = { onEntryLongPress(entry) },
+                                                     modifier = Modifier.animateItem()
+                                                 )
+                                             }
+                                             is TimelineItem.UntrackedGap -> {
+                                                 UntrackedGapItem(
+                                                     startTime = item.startTime,
+                                                     endTime = item.endTime,
+                                                     onClick = {
+                                                         onCreateFromGapSafe(item.startTime, item.endTime)
+                                                     },
+                                                     modifier = Modifier.animateItem()
+                                                 )
+                                             }
+                                         }
+                                     }
+                                 }
+                             }
+                         } else {
+                             val dayGroup = uiState.dayGroups.find { it.date == uiState.selectedDate }
+                             val entries = dayGroup?.items?.mapNotNull { (it as? TimelineItem.Entry)?.entry } ?: emptyList()
 
-                                    items(
-                                        items = dayGroup.items,
-                                        key = { item ->
-                                            when (item) {
-                                                is TimelineItem.Entry -> "entry-${item.entry.id}"
-                                                is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
-                                            }
-                                        }
-                                    ) { item ->
-                                        when (item) {
-                                            is TimelineItem.Entry -> {
-                                                val entry = item.entry
-                                                TimeEntryItem(
-                                                    entry = entry,
-                                                    isSelected = entry.id in uiState.selectedEntryIds,
-                                                    isSelectionMode = uiState.isSelectionMode,
-                                                    onClick = { _ -> onEntryClick(entry) },
-                                                    onLongClick = { onEntryLongPress(entry) },
-                                                    modifier = Modifier.animateItem()
-                                                )
-                                            }
-                                            is TimelineItem.UntrackedGap -> {
-                                                UntrackedGapItem(
-                                                    startTime = item.startTime,
-                                                    endTime = item.endTime,
-                                                    onClick = {
-                                                        onCreateFromGapSafe(item.startTime, item.endTime)
-                                                    },
-                                                    modifier = Modifier.animateItem()
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            val dayGroup = uiState.dayGroups.find { it.date == uiState.selectedDate }
-                            val entries = dayGroup?.items?.mapNotNull { (it as? TimelineItem.Entry)?.entry } ?: emptyList()
 
                             TimeBlockDayView(
                                 date = uiState.selectedDate,
