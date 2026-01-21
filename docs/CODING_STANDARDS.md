@@ -1505,7 +1505,7 @@ fun detectConflicts(
 遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
 
 ```
-<type>(<scope>): <subject>
+<type>: <subject>
 
 <body>
 
