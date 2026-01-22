@@ -6,6 +6,9 @@ import android.os.Build
 import com.maplume.blockwise.core.domain.model.TimeEntryInput
 import com.maplume.blockwise.core.domain.repository.TimeEntryRepository
 import com.maplume.blockwise.feature.timeentry.data.local.TimerPreferences
+import kotlinx.datetime.atTime
+import kotlinx.datetime.toInstant
+import kotlinx.datetime.toLocalDateTime
 import com.maplume.blockwise.feature.timeentry.domain.model.TimerManager
 import com.maplume.blockwise.feature.timeentry.domain.model.TimerResult
 import com.maplume.blockwise.feature.timeentry.service.TimerService
@@ -109,23 +112,69 @@ class StopTimerUseCase @Inject constructor(
 
         // Create time entry from timer result
         return try {
-            val input = TimeEntryInput(
+            val entries = buildTimerEntries(
                 activityId = result.activityId,
                 startTime = result.startTime,
                 endTime = result.endTime,
-                note = null,
                 tagIds = result.tagIds
             )
 
-            if (result.endTime <= result.startTime) {
-                return Result.failure(IllegalArgumentException("计时时长不足1秒，记录未保存"))
-            }
-
-            val entryId = timeEntryRepository.create(input)
-            Result.success(entryId)
+            val ids = entries.map { input -> timeEntryRepository.create(input) }
+            Result.success(ids.firstOrNull())
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+}
+
+internal fun buildTimerEntries(
+    activityId: Long,
+    startTime: kotlinx.datetime.Instant,
+    endTime: kotlinx.datetime.Instant,
+    tagIds: List<Long>
+): List<TimeEntryInput> {
+    val startMillis = startTime.toEpochMilliseconds()
+    val endMillis = endTime.toEpochMilliseconds()
+    val resolvedEnd = if (endMillis <= startMillis) {
+        kotlinx.datetime.Instant.fromEpochMilliseconds(startMillis + 1000)
+    } else {
+        endTime
+    }
+
+    val tz = kotlinx.datetime.TimeZone.currentSystemDefault()
+    val startLocal = startTime.toLocalDateTime(tz)
+    val endLocal = resolvedEnd.toLocalDateTime(tz)
+
+    return if (startLocal.date == endLocal.date) {
+        listOf(
+            TimeEntryInput(
+                activityId = activityId,
+                startTime = startTime,
+                endTime = resolvedEnd,
+                note = null,
+                tagIds = tagIds
+            )
+        )
+    } else {
+        val nextDate = kotlinx.datetime.LocalDate.fromEpochDays(startLocal.date.toEpochDays() + 1)
+        val midnight = nextDate.atTime(kotlinx.datetime.LocalTime(0, 0)).toInstant(tz)
+
+        listOf(
+            TimeEntryInput(
+                activityId = activityId,
+                startTime = startTime,
+                endTime = midnight,
+                note = null,
+                tagIds = tagIds
+            ),
+            TimeEntryInput(
+                activityId = activityId,
+                startTime = midnight,
+                endTime = resolvedEnd,
+                note = null,
+                tagIds = tagIds
+            )
+        )
     }
 }
 

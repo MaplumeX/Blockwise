@@ -24,12 +24,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import com.maplume.blockwise.feature.timeentry.domain.model.TimerState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -75,6 +77,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import kotlin.time.Duration.Companion.milliseconds
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,6 +92,7 @@ import com.maplume.blockwise.core.designsystem.component.BlockwiseEmptyState
 import com.maplume.blockwise.core.designsystem.component.LoadingIndicator
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.ActivityType
+import com.maplume.blockwise.core.domain.model.Tag
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
@@ -178,6 +184,10 @@ fun TimelineScreen(
         onMergeCancel = viewModel::onMergeCancel,
         onCreateFromGap = onNavigateToCreateFromGap,
         onCreateEntry = viewModel::onQuickCreate,
+        onShowTimerActivitySelector = viewModel::showTimerActivitySelector,
+        onHideTimerActivitySelector = viewModel::hideTimerActivitySelector,
+        onStartTimer = viewModel::onStartTimer,
+        onStopTimer = viewModel::onStopTimer,
         onNavigateWeek = viewModel::navigateWeek,
         onNavigateToToday = viewModel::navigateToToday,
         onDateSelect = viewModel::setSelectedDate,
@@ -220,6 +230,10 @@ internal fun TimelineScreenContent(
     onMergeCancel: () -> Unit,
     onCreateFromGap: (startTime: Instant, endTime: Instant) -> Unit,
     onCreateEntry: () -> Unit,
+    onShowTimerActivitySelector: () -> Unit,
+    onHideTimerActivitySelector: () -> Unit,
+    onStartTimer: (ActivityType) -> Unit,
+    onStopTimer: () -> Unit,
     onNavigateWeek: (Int) -> Unit,
     onNavigateToToday: () -> Unit,
     onDateSelect: (LocalDate) -> Unit,
@@ -283,7 +297,7 @@ internal fun TimelineScreenContent(
             }
         },
         floatingActionButton = {
-            if (viewMode == TimelineViewMode.LIST && !uiState.isSelectionMode) {
+            if (viewMode == TimelineViewMode.LIST && !uiState.isSelectionMode && !uiState.isSelectedDateToday) {
                 FloatingActionButton(
                     onClick = onCreateEntry,
                     modifier = Modifier.testTag("timelineQuickCreateFab")
@@ -342,9 +356,16 @@ internal fun TimelineScreenContent(
                         LoadingIndicator()
                     }
                 } else if (uiState.dayGroups.isEmpty()) {
-                    EmptyTimelineContent(
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    if (viewMode == TimelineViewMode.LIST && uiState.isSelectedDateToday) {
+                        TimelineTodayEmptyContent(
+                            uiState = uiState,
+                            onStopTimer = onStopTimer,
+                            onShowTimerActivitySelector = onShowTimerActivitySelector,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        EmptyTimelineContent(modifier = Modifier.fillMaxSize())
+                    }
                 } else {
                     PullToRefreshBox(
                         isRefreshing = false,
@@ -354,7 +375,16 @@ internal fun TimelineScreenContent(
                         if (viewMode == TimelineViewMode.LIST) {
                              val selectedDayGroup = uiState.dayGroups.firstOrNull { it.date == uiState.selectedDate }
                              if (selectedDayGroup == null) {
-                                 EmptyTimelineContent(modifier = Modifier.fillMaxSize())
+                                 if (uiState.isSelectedDateToday) {
+                                     TimelineTodayEmptyContent(
+                                         uiState = uiState,
+                                         onStopTimer = onStopTimer,
+                                         onShowTimerActivitySelector = onShowTimerActivitySelector,
+                                         modifier = Modifier.fillMaxSize()
+                                     )
+                                 } else {
+                                     EmptyTimelineContent(modifier = Modifier.fillMaxSize())
+                                 }
                              } else {
                                  LazyColumn(
                                      state = listState,
@@ -401,6 +431,34 @@ internal fun TimelineScreenContent(
                                              }
                                          }
                                      }
+
+                                     if (viewMode == TimelineViewMode.LIST && uiState.isSelectedDateToday) {
+                                         if (uiState.timerState.isActive) {
+                                             item(key = "running-timer") {
+                                                 RunningTimerEntryItem(
+                                                     state = uiState.timerState,
+                                                     elapsedMillis = uiState.timerElapsedMillis,
+                                                     modifier = Modifier
+                                                         .testTag("timelineRunningTimerEntry")
+                                                         .animateItem()
+                                                 )
+                                             }
+                                         }
+
+                                         item(key = "timer-entry-point") {
+                                             TimerEntryPointButton(
+                                                 isActive = uiState.timerState.isActive,
+                                                 onClick = {
+                                                     if (uiState.timerState.isActive) {
+                                                         onStopTimer()
+                                                     } else {
+                                                         onShowTimerActivitySelector()
+                                                     }
+                                                 },
+                                                 modifier = Modifier.padding(vertical = 8.dp)
+                                             )
+                                         }
+                                     }
                                  }
                              }
                          } else {
@@ -430,6 +488,47 @@ internal fun TimelineScreenContent(
                     }
                 }
             }
+        }
+
+        if (uiState.showTimerActivitySelector) {
+            AlertDialog(
+                onDismissRequest = onHideTimerActivitySelector,
+                title = { Text("选择活动") },
+                text = {
+                    LazyColumn {
+                        items(uiState.activityTypes) { activity ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onStartTimer(activity)
+                                        onHideTimerActivitySelector()
+                                    }
+                                    .padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(safeParseColor(activity.colorHex))
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Text(
+                                    text = activity.name,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = onHideTimerActivitySelector) {
+                        Text("取消")
+                    }
+                }
+            )
         }
 
         // Date Picker
@@ -853,11 +952,131 @@ private fun TimelineScreenPreview() {
             onMergeCancel = {},
             onCreateFromGap = { _, _ -> },
             onCreateEntry = {},
+            onShowTimerActivitySelector = {},
+            onHideTimerActivitySelector = {},
+            onStartTimer = {},
+            onStopTimer = {},
             onNavigateWeek = {},
             onNavigateToToday = {},
             onDateSelect = {},
             onShowDatePicker = {},
             onHideDatePicker = {}
         )
+    }
+}
+
+@Composable
+private fun RunningTimerEntryItem(
+    state: TimerState,
+    elapsedMillis: Long,
+    modifier: Modifier = Modifier
+) {
+    if (!state.isActive) return
+
+    val (startTime, colorHex) = when (state) {
+        is TimerState.Running -> state.startTime to state.activityColorHex
+        is TimerState.Paused -> state.startTime to state.activityColorHex
+        else -> return
+    }
+
+    val entry = TimeEntry(
+        id = -1L,
+        activity = ActivityType(
+            id = state.activityId ?: 0L,
+            name = state.activityName ?: "",
+            colorHex = colorHex,
+            icon = null,
+            parentId = null,
+            displayOrder = 0,
+            isArchived = false
+        ),
+        startTime = startTime,
+        endTime = startTime.plus(elapsedMillis.milliseconds),
+        durationMinutes = (elapsedMillis / 60000).toInt(),
+        note = null,
+        tags = listOf(
+            Tag(
+                id = -1L,
+                name = "进行中",
+                colorHex = "#4CAF50",
+                isArchived = false
+            )
+        )
+    )
+
+    TimeEntryItem(
+        entry = entry,
+        isSelected = false,
+        isSelectionMode = false,
+        onClick = {},
+        onLongClick = {},
+        modifier = modifier.testTag("timelineRunningTimerEntry")
+    )
+}
+
+@Composable
+private fun TimerEntryPointButton(
+    isActive: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .testTag("timelineTimerEntryPoint")
+            .semantics {
+                contentDescription = if (isActive) "完成计时" else "开始计时"
+            }
+    ) {
+        Text(if (isActive) "完成" else "开始")
+    }
+}
+
+@Composable
+private fun TimelineTodayEmptyContent(
+    uiState: TimelineUiState,
+    onStopTimer: () -> Unit,
+    onShowTimerActivitySelector: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.padding(16.dp)) {
+        if (uiState.timerState.isActive) {
+            RunningTimerEntryItem(
+                state = uiState.timerState,
+                elapsedMillis = uiState.timerElapsedMillis,
+                modifier = Modifier
+                    .testTag("timelineRunningTimerEntry")
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        
+        Box(
+            modifier = Modifier.weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+             BlockwiseEmptyState(
+                title = "暂无时间记录",
+                description = "开始计时或手动添加记录",
+                icon = Icons.Outlined.Schedule
+            )
+        }
+
+        TimerEntryPointButton(
+             isActive = uiState.timerState.isActive,
+             onClick = {
+                 if (uiState.timerState.isActive) onStopTimer() else onShowTimerActivitySelector()
+             },
+             modifier = Modifier.padding(vertical = 8.dp)
+         )
+    }
+}
+
+private fun safeParseColor(hex: String): Color {
+    return try {
+        Color(android.graphics.Color.parseColor(hex))
+    } catch (e: Exception) {
+        Color.Gray 
     }
 }

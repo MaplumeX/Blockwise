@@ -18,7 +18,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import org.junit.Rule
 import org.junit.Test
@@ -33,7 +35,9 @@ class TimelineQuickCreateFabTest {
     @Test
     fun fabOnlyVisibleInTimelineListView() {
         val now = Clock.System.now()
-        val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val tz = TimeZone.currentSystemDefault()
+        val today = now.toLocalDateTime(tz).date
+        val yesterday = today.minus(1, DateTimeUnit.DAY)
 
         var mode by mutableStateOf(TimelineViewMode.LIST)
 
@@ -41,7 +45,7 @@ class TimelineQuickCreateFabTest {
             BlockwiseTheme {
                 TimelineScreenContent(
                     uiState = TimelineUiState(
-                        selectedDate = today,
+                        selectedDate = yesterday,
                         dayGroups = emptyList(),
                         isLoading = false
                     ),
@@ -74,6 +78,10 @@ class TimelineQuickCreateFabTest {
                     onMergeCancel = {},
                     onCreateFromGap = { _, _ -> },
                     onCreateEntry = {},
+                    onShowTimerActivitySelector = {},
+                    onHideTimerActivitySelector = {},
+                    onStartTimer = {},
+                    onStopTimer = {},
                     onNavigateWeek = {},
                     onNavigateToToday = {},
                     onDateSelect = {},
@@ -102,7 +110,9 @@ class TimelineQuickCreateFabTest {
     @Test
     fun tapFabOpensCreateSheetAndCanDismissWithoutCreating() {
         val now = Clock.System.now()
-        val today = now.toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val tz = TimeZone.currentSystemDefault()
+        val today = now.toLocalDateTime(tz).date
+        val nonToday = today.minus(1, DateTimeUnit.DAY)
 
         var createInvoked = false
         var showSheet by mutableStateOf(false)
@@ -114,7 +124,7 @@ class TimelineQuickCreateFabTest {
             val draft = if (showSheet) {
                 TimeEntryDraft(
                     entryId = 0L,
-                    baseDate = today,
+                    baseDate = nonToday,
                     startTime = startTime,
                     endTime = endTime,
                     activityId = 1L,
@@ -128,7 +138,7 @@ class TimelineQuickCreateFabTest {
             }
 
             return TimelineUiState(
-                selectedDate = today,
+                selectedDate = nonToday,
                 dayGroups = emptyList(),
                 isLoading = false,
                 sheetDraft = draft,
@@ -169,6 +179,10 @@ class TimelineQuickCreateFabTest {
                     onMergeCancel = {},
                     onCreateFromGap = { _, _ -> },
                     onCreateEntry = { showSheet = true },
+                    onShowTimerActivitySelector = {},
+                    onHideTimerActivitySelector = {},
+                    onStartTimer = {},
+                    onStopTimer = {},
                     onNavigateWeek = {},
                     onNavigateToToday = {},
                     onDateSelect = {},
@@ -214,5 +228,72 @@ class TimelineQuickCreateFabTest {
         composeTestRule.waitForIdle()
 
         assert(!createInvoked)
+    }
+
+    @Test
+    fun onToday_fabIsHidden_and_timerEntryPointIsVisible() {
+        val now = Clock.System.now()
+        val tz = TimeZone.currentSystemDefault()
+        val today = now.toLocalDateTime(tz).date
+
+        composeTestRule.setContent {
+            BlockwiseTheme {
+                TimelineScreenContent(
+                    uiState = TimelineUiState(
+                        selectedDate = today,
+                        dayGroups = emptyList(),
+                        isLoading = false
+                    ),
+                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
+                    viewMode = TimelineViewMode.LIST,
+                    onViewModeChange = {},
+                    onRefresh = {},
+                    onEntryClick = {},
+                    onTimeBlockEntryClick = {},
+                    onClearTimeBlockSelection = {},
+                    onEntryLongPress = {},
+                    onExitSelectionMode = {},
+                    onDismissEntrySheet = {},
+                    onSaveEntryDraft = {},
+                    onCreateFromSheet = {},
+                    onDraftStartTimeChange = {},
+                    onDraftEndTimeChange = {},
+                    onDraftActivitySelect = {},
+                    onDraftTagToggle = {},
+                    onDraftNoteChange = {},
+                    onMergeUp = {},
+                    onMergeDown = {},
+                    onDeleteFromSheet = {},
+                    onSplitFromSheet = {},
+                    onBatchDelete = {},
+                    onSplitConfirm = {},
+                    onSplitCancel = {},
+                    onMergeRequest = {},
+                    onMergeConfirm = {},
+                    onMergeCancel = {},
+                    onCreateFromGap = { _, _ -> },
+                    onCreateEntry = {},
+                    onShowTimerActivitySelector = {},
+                    onHideTimerActivitySelector = {},
+                    onStartTimer = {},
+                    onStopTimer = {},
+                    onNavigateWeek = {},
+                    onNavigateToToday = {},
+                    onDateSelect = {},
+                    onShowDatePicker = {},
+                    onHideDatePicker = {}
+                )
+            }
+        }
+
+        var fabVisible = true
+        try {
+            composeTestRule.onNodeWithTag("timelineQuickCreateFab").assertIsDisplayed()
+        } catch (_: AssertionError) {
+            fabVisible = false
+        }
+        assertFalse("FAB should be hidden on today", fabVisible)
+
+        composeTestRule.onNodeWithTag("timelineTimerEntryPoint").assertIsDisplayed()
     }
 }

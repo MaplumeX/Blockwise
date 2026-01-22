@@ -6,8 +6,12 @@ import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.core.domain.model.TimeEntryInput
+import com.maplume.blockwise.feature.timeentry.domain.model.TimerState
 import com.maplume.blockwise.feature.timeentry.domain.usecase.activitytype.GetActivityTypesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.tag.GetTagsUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timer.GetTimerStateUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timer.StartTimerUseCase
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timer.StopTimerUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.CreateTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.DeleteTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeentry.GetTimeEntriesUseCase
@@ -90,13 +94,20 @@ data class TimelineUiState(
     val sheetMode: TimelineEntrySheetMode = TimelineEntrySheetMode.EDIT,
     val activityTypes: List<ActivityType> = emptyList(),
     val availableTags: List<Tag> = emptyList(),
+    val timerState: TimerState = TimerState.Idle,
+    val timerElapsedMillis: Long = 0L,
+    val showTimerActivitySelector: Boolean = false,
     val hiddenEntryIds: Set<Long> = emptySet()
-) { 
+) {
     val weekStartDate: LocalDate
         get() {
             val daysFromMonday = selectedDate.dayOfWeek.ordinal
             return selectedDate.minus(daysFromMonday, DateTimeUnit.DAY)
         }
+
+    val isSelectedDateToday: Boolean
+        get() = selectedDate == Clock.System.now()
+            .toLocalDateTime(TimeZone.currentSystemDefault()).date
 }
 
 data class TimeEntryDraft(
@@ -151,7 +162,10 @@ class TimelineViewModel @Inject constructor(
     private val mergeTimeEntries: MergeTimeEntriesUseCase,
     private val updateTimeEntry: UpdateTimeEntryUseCase,
     private val getActivityTypes: GetActivityTypesUseCase,
-    private val getTags: GetTagsUseCase
+    private val getTags: GetTagsUseCase,
+    private val getTimerState: GetTimerStateUseCase,
+    private val startTimer: StartTimerUseCase,
+    private val stopTimer: StopTimerUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(TimelineUiState())
@@ -181,6 +195,22 @@ class TimelineViewModel @Inject constructor(
                 activities to tags
             }.collect { (activities, tags) ->
                 _uiState.update { it.copy(activityTypes = activities, availableTags = tags) }
+            }
+        }
+
+        viewModelScope.launch {
+            combine(
+                getTimerState.state,
+                getTimerState.elapsedMillis
+            ) { state, elapsedMillis ->
+                state to elapsedMillis
+            }.collect { (state, elapsedMillis) ->
+                _uiState.update {
+                    it.copy(
+                        timerState = state,
+                        timerElapsedMillis = elapsedMillis
+                    )
+                }
             }
         }
     }
@@ -707,5 +737,36 @@ class TimelineViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.update { it.copy(error = null) }
+    }
+
+    fun showTimerActivitySelector() {
+        _uiState.update { it.copy(showTimerActivitySelector = true) }
+    }
+
+    fun hideTimerActivitySelector() {
+        _uiState.update { it.copy(showTimerActivitySelector = false) }
+    }
+
+    fun onStartTimer(activityType: ActivityType) {
+        if (_uiState.value.timerState.isActive) return
+
+        startTimer(
+            activityId = activityType.id,
+            activityName = activityType.name,
+            activityColorHex = activityType.colorHex,
+            tagIds = emptyList()
+        )
+    }
+
+    fun onStopTimer() {
+        viewModelScope.launch {
+            val result = stopTimer(createEntry = true)
+            result.fold(
+                onSuccess = { refresh() },
+                onFailure = { error ->
+                    _events.emit(TimelineEvent.Error(error.message ?: "保存失败"))
+                }
+            )
+        }
     }
 }
