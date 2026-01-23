@@ -21,7 +21,7 @@ class GetTimeEntriesUseCase @Inject constructor(
      * @return Flow of time entry list.
      */
     operator fun invoke(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>> {
-        return repository.getByTimeRange(startTime, endTime)
+        return repository.getOverlapping(startTime, endTime)
     }
 
     /**

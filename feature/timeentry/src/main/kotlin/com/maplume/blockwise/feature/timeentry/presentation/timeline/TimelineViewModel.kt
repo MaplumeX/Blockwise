@@ -241,21 +241,31 @@ class TimelineViewModel @Inject constructor(
             getTimeEntries(startInstant, endInstant)
                 .collect { entries ->
                     latestEntries = entries
-                    updateDayGroups()
+                    updateDayGroups(weekStart = weekStart)
                     _uiState.update { it.copy(isLoading = false) }
                 }
         }
     }
 
-    private fun updateDayGroups() {
+    private fun updateDayGroups(weekStart: LocalDate = _uiState.value.weekStartDate) {
         val tz = TimeZone.currentSystemDefault()
         val hidden = _uiState.value.hiddenEntryIds
         val visibleEntries = latestEntries.filterNot { it.id in hidden }
 
-        val dayGroups = visibleEntries
-            .groupBy { it.startTime.toLocalDateTime(tz).date }
-            .map { (date, dayEntries) ->
-                createDayGroup(date = date, entries = dayEntries, timeZone = tz)
+        val dates = (0..6).map { weekStart.plus(it, DateTimeUnit.DAY) }
+
+        val dayGroups = dates
+            .mapNotNull { date ->
+                val dayStart = date.atTime(LocalTime(0, 0)).toInstant(tz)
+                val dayEnd = date.plus(1, DateTimeUnit.DAY).atTime(LocalTime(0, 0)).toInstant(tz)
+
+                val dayEntries = visibleEntries.filter { entry ->
+                    entry.startTime < dayEnd && entry.endTime > dayStart
+                }
+
+                dayEntries.takeIf { it.isNotEmpty() }?.let {
+                    createDayGroup(date = date, entries = it, timeZone = tz)
+                }
             }
             .sortedByDescending { it.date }
 
@@ -417,7 +427,7 @@ class TimelineViewModel @Inject constructor(
             .asSequence()
             .flatMap { dayGroup -> dayGroup.items.asSequence() }
             .mapNotNull { it as? TimelineItem.Entry }
-            .map { it.entry }
+            .map { it.slice.entry }
             .firstOrNull { it.id == entryId }
     }
 
@@ -543,7 +553,7 @@ class TimelineViewModel @Inject constructor(
         for (dayGroup in _uiState.value.dayGroups) {
             val entries = dayGroup.items
                 .mapNotNull { it as? TimelineItem.Entry }
-                .map { it.entry }
+                .map { it.slice.entry }
                 .sortedWith(compareBy<TimeEntry> { it.startTime }.thenBy { it.id })
 
             val idx = entries.indexOfFirst { it.id == entryId }

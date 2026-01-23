@@ -95,20 +95,6 @@ interface StatisticsDao {
     @Query(
         """
         SELECT
-            (te.start_time / 86400000) * 86400000 AS date_millis,
-            COALESCE(SUM(te.duration_minutes), 0) AS total_minutes,
-            COUNT(te.id) AS entry_count
-        FROM time_entries te
-        WHERE te.start_time >= :startTime AND te.start_time < :endTime
-        GROUP BY date_millis
-        ORDER BY date_millis ASC
-        """
-    )
-    fun getDailyStats(startTime: Long, endTime: Long): Flow<List<DailyStatistics>>
-
-    @Query(
-        """
-        SELECT
             CAST((te.start_time / 3600000) % 24 AS INTEGER) AS hour,
             COALESCE(SUM(te.duration_minutes), 0) AS total_minutes
         FROM time_entries te

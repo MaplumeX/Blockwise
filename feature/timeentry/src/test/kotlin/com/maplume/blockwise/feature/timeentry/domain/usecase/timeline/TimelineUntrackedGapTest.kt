@@ -131,6 +131,13 @@ class TimelineUntrackedGapTest {
         assertEquals(1, gaps.size)
         assertEquals(instant(date, LocalTime(0, 0)), gaps[0].startTime)
         assertEquals(instant(date, LocalTime(23, 0), second = 10), gaps[0].endTime)
+
+        val entries = items.filterIsInstance<TimelineItem.Entry>()
+        assertEquals(1, entries.size)
+        assertEquals(entry.id, entries[0].slice.entry.id)
+        assertEquals(date, entries[0].slice.date)
+        assertEquals(instant(date, LocalTime(23, 0), second = 10), entries[0].slice.sliceStart)
+        assertEquals(instant(LocalDate(2026, 1, 2), LocalTime(0, 0)), entries[0].slice.sliceEnd)
     }
 
     @Test

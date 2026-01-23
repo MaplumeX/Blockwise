@@ -21,6 +21,8 @@ interface TimeEntryRepository {
 
     fun getByDay(date: LocalDate): Flow<List<TimeEntry>>
 
+    fun getOverlapping(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>>
+
     fun getRecent(limit: Int, offset: Int): Flow<List<TimeEntry>>
 
     suspend fun hasOverlapping(startTime: Instant, endTime: Instant, excludeId: Long = 0): Boolean

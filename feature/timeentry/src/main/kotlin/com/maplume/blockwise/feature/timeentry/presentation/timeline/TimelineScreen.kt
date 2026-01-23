@@ -405,24 +405,26 @@ internal fun TimelineScreenContent(
                                      items(
                                          items = selectedDayGroup.items,
                                          key = { item ->
-                                             when (item) {
-                                                 is TimelineItem.Entry -> "entry-${item.entry.id}"
-                                                 is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
-                                             }
+                                            when (item) {
+                                                  is TimelineItem.Entry -> "entry-${item.slice.entry.id}-${item.slice.date}"
+                                                  is TimelineItem.UntrackedGap -> "gap-${item.startTime.toEpochMilliseconds()}-${item.endTime.toEpochMilliseconds()}"
+                                              }
+
                                          }
                                      ) { item ->
                                          when (item) {
-                                             is TimelineItem.Entry -> {
-                                                 val entry = item.entry
-                                                 TimeEntryItem(
-                                                     entry = entry,
-                                                     isSelected = entry.id in uiState.selectedEntryIds,
-                                                     isSelectionMode = uiState.isSelectionMode,
-                                                     onClick = { _ -> onEntryClick(entry) },
-                                                     onLongClick = { onEntryLongPress(entry) },
-                                                     modifier = Modifier.animateItem()
-                                                 )
-                                             }
+                                              is TimelineItem.Entry -> {
+                                                  val entry = item.slice.entry
+                                                  TimeEntryItem(
+                                                      entry = entry,
+                                                      isSelected = entry.id in uiState.selectedEntryIds,
+                                                      isSelectionMode = uiState.isSelectionMode,
+                                                      onClick = { _ -> onEntryClick(entry) },
+                                                      onLongClick = { onEntryLongPress(entry) },
+                                                      modifier = Modifier.animateItem()
+                                                  )
+                                              }
+
                                              is TimelineItem.UntrackedGap -> {
                                                  UntrackedGapItem(
                                                      startTime = item.startTime,
@@ -467,7 +469,8 @@ internal fun TimelineScreenContent(
                              }
                          } else {
                              val dayGroup = uiState.dayGroups.find { it.date == uiState.selectedDate }
-                             val entries = dayGroup?.items?.mapNotNull { (it as? TimelineItem.Entry)?.entry } ?: emptyList()
+                              val entries = dayGroup?.items?.mapNotNull { (it as? TimelineItem.Entry)?.slice?.entry } ?: emptyList()
+
 
 
                             TimeBlockDayView(

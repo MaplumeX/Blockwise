@@ -271,17 +271,21 @@ private fun TagChip(
     }
 }
 
-/**
- * Format time range for display.
- */
 private fun formatTimeRange(entry: TimeEntry): String {
     val tz = TimeZone.currentSystemDefault()
     val startLocal = entry.startTime.toLocalDateTime(tz)
     val endLocal = entry.endTime.toLocalDateTime(tz)
 
-    val startStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
+    val isCrossDay = startLocal.date != endLocal.date
 
-    val endStr = if (
+    val startTimeStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
+    val startStr = if (isCrossDay) {
+        "${startLocal.date.monthNumber}/${startLocal.date.dayOfMonth} $startTimeStr"
+    } else {
+        startTimeStr
+    }
+
+    val endTimeStr = if (
         endLocal.hour == 0 &&
             endLocal.minute == 0 &&
             endLocal.date.toEpochDays() == startLocal.date.toEpochDays() + 1
@@ -289,6 +293,12 @@ private fun formatTimeRange(entry: TimeEntry): String {
         "24:00"
     } else {
         String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+    }
+
+    val endStr = if (isCrossDay) {
+        "${endLocal.date.monthNumber}/${endLocal.date.dayOfMonth} $endTimeStr"
+    } else {
+        endTimeStr
     }
 
     return "$startStr - $endStr"

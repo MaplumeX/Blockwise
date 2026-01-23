@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.toLocalDateTime
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -114,8 +115,30 @@ private fun formatTimeRange(entry: TimeEntry): String {
     val startLocal = entry.startTime.toLocalDateTime(tz)
     val endLocal = entry.endTime.toLocalDateTime(tz)
 
-    val startStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
-    val endStr = String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+    val isCrossDay = startLocal.date != endLocal.date
+
+    val startTimeStr = String.format("%02d:%02d", startLocal.hour, startLocal.minute)
+    val startStr = if (isCrossDay) {
+        "${startLocal.date.monthNumber}/${startLocal.date.dayOfMonth} $startTimeStr"
+    } else {
+        startTimeStr
+    }
+
+    val endTimeStr = if (
+        endLocal.hour == 0 &&
+            endLocal.minute == 0 &&
+            endLocal.date == LocalDate.fromEpochDays(startLocal.date.toEpochDays() + 1)
+    ) {
+        "24:00"
+    } else {
+        String.format("%02d:%02d", endLocal.hour, endLocal.minute)
+    }
+
+    val endStr = if (isCrossDay) {
+        "${endLocal.date.monthNumber}/${endLocal.date.dayOfMonth} $endTimeStr"
+    } else {
+        endTimeStr
+    }
 
     return "$startStr-$endStr"
 }

@@ -2,6 +2,11 @@ package com.maplume.blockwise.feature.timeentry.domain.usecase.timeline
 
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import com.maplume.blockwise.core.domain.repository.TimeEntryRepository
+import com.maplume.blockwise.core.domain.time.TimeRange
+import com.maplume.blockwise.core.domain.time.daySliceForEntry
+import com.maplume.blockwise.core.domain.time.dayWindow
+import com.maplume.blockwise.core.domain.time.overlapMinutes
+import com.maplume.blockwise.feature.timeentry.domain.model.TimelineDaySlice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.datetime.Instant
@@ -14,7 +19,7 @@ import kotlinx.datetime.toLocalDateTime
 import javax.inject.Inject
 
 sealed interface TimelineItem {
-    data class Entry(val entry: TimeEntry) : TimelineItem
+    data class Entry(val slice: TimelineDaySlice) : TimelineItem
 
     data class UntrackedGap(
         val startTime: Instant,
@@ -48,10 +53,20 @@ internal fun createDayGroup(
     timeZone: TimeZone = TimeZone.currentSystemDefault()
 ): DayGroup {
     val sortedEntries = entries.sortedBy { it.startTime }
+
+    val dayWindow = dayWindow(date, timeZone)
+    val totalMinutes = entries.sumOf { entry ->
+        overlapMinutes(
+            entryRange = TimeRange(startTime = entry.startTime, endTime = entry.endTime),
+            window = dayWindow,
+            timeZone = timeZone
+        )
+    }
+
     return DayGroup(
         date = date,
         items = buildTimelineItemsForDay(date = date, sortedEntriesByStart = sortedEntries, timeZone = timeZone),
-        totalMinutes = entries.sumOf { it.durationMinutes }
+        totalMinutes = totalMinutes
     )
 }
 
@@ -62,9 +77,7 @@ internal fun buildTimelineItemsForDay(
 ): List<TimelineItem> {
     if (sortedEntriesByStart.isEmpty()) return emptyList()
 
-    val dayStart = date.atTime(LocalTime(0, 0)).toInstant(timeZone)
-    val nextDate = LocalDate.fromEpochDays(date.toEpochDays() + 1)
-    val dayEnd = nextDate.atTime(LocalTime(0, 0)).toInstant(timeZone)
+    val window = dayWindow(date, timeZone)
 
     val items = mutableListOf<TimelineItem>()
 
@@ -78,34 +91,44 @@ internal fun buildTimelineItemsForDay(
     var currentEnd: Instant? = null
 
     for (entry in sortedEntriesByStart) {
-        val clippedStart = maxOf(entry.startTime, dayStart)
-        val clippedEnd = minOf(entry.endTime, dayEnd)
-
-        if (clippedEnd <= dayStart || clippedStart >= dayEnd) continue
+        val slice = daySliceForEntry(
+            entryRange = TimeRange(startTime = entry.startTime, endTime = entry.endTime),
+            date = date,
+            timeZone = timeZone
+        ) ?: continue
 
         if (currentEnd == null) {
-            if (clippedStart > dayStart) {
-                maybeAddGap(dayStart, clippedStart)
+            if (slice.sliceStart > window.startTime) {
+                maybeAddGap(window.startTime, slice.sliceStart)
             }
-            items.add(TimelineItem.Entry(entry))
-            currentEnd = clippedEnd
+            items.add(TimelineItem.Entry(slice.toTimelineDaySlice(entry)))
+            currentEnd = slice.sliceEnd
         } else {
-            if (clippedStart > currentEnd) {
-                maybeAddGap(currentEnd, clippedStart)
+            if (slice.sliceStart > currentEnd) {
+                maybeAddGap(currentEnd, slice.sliceStart)
             }
-            items.add(TimelineItem.Entry(entry))
-            if (clippedEnd > currentEnd) {
-                currentEnd = clippedEnd
+            items.add(TimelineItem.Entry(slice.toTimelineDaySlice(entry)))
+            if (slice.sliceEnd > currentEnd) {
+                currentEnd = slice.sliceEnd
             }
         }
     }
 
     val lastEnd = currentEnd ?: return items
-    if (dayEnd > lastEnd) {
-        maybeAddGap(lastEnd, dayEnd)
+    if (window.endTime > lastEnd) {
+        maybeAddGap(lastEnd, window.endTime)
     }
 
     return items
+}
+
+private fun com.maplume.blockwise.core.domain.time.DaySlice.toTimelineDaySlice(entry: TimeEntry): TimelineDaySlice {
+    return TimelineDaySlice(
+        entry = entry,
+        date = date,
+        sliceStart = sliceStart,
+        sliceEnd = sliceEnd
+    )
 }
 
 /**

@@ -41,11 +41,8 @@ For entries spanning across hours, the system SHALL slice the segment per hour r
 Within a given hour row, the segment capsule SHALL extend horizontally across the minute columns that fall within the entry's time range.
 The system SHALL avoid per-cell rendering of time entries and SHALL prefer rendering by continuous ranges.
 
-#### Scenario: Render entry as horizontal segment within an hour row
-- **GIVEN** a time entry that starts and ends within the same hour
-- **WHEN** the day grid is rendered
-- **THEN** the entry appears as a horizontal segment capsule within that hour row
-- **AND** the capsule spans the corresponding 5-minute columns
+For entries that overlap the selected date D but span across natural days, the system SHALL render only the portion that overlaps date D in the day grid.
+The non-overlapping portion SHALL be rendered when viewing the other affected dates.
 
 #### Scenario: Render entry spanning multiple hour rows
 - **GIVEN** a time entry that spans across multiple hours
@@ -54,9 +51,11 @@ The system SHALL avoid per-cell rendering of time entries and SHALL prefer rende
 - **AND** all slices share the same visual identity (e.g., color)
 - **AND** the overall appearance remains visually continuous across rows
 
-#### Scenario: Range-based rendering
-- **WHEN** multiple time entries are rendered on the grid
-- **THEN** the UI renders entries as range segments rather than rendering individual 5-minute cells for each entry
+#### Scenario: Cross-day entry renders only the overlapped portion for selected day
+- **GIVEN** the selected date is day D
+- **AND** a time entry from 23:00 on day D to 01:00 on day D+1
+- **WHEN** the day grid is rendered
+- **THEN** the entry is rendered as 23:00–24:00 on day D
 
 ### Requirement: Shared Data Source and Selected Date
 The Timeline list view and the Time Block view SHALL share the same data source and the same selected date semantics.
@@ -75,4 +74,15 @@ The system SHALL NOT provide a user-configurable granularity setting in v1.2.
 - **WHEN** the user views the Time Block day view
 - **THEN** the grid uses 5-minute increments
 - **AND** the user cannot change the grid granularity
+
+### Requirement: Time Block Day View Renders Overlapped Day Slices
+When viewing the Time Block day view for selected date D, the system SHALL render all TimeEntries that overlap date D.
+Cross-day entries SHALL be naturally shown as the portion overlapped with date D.
+
+#### Scenario: Cross-day entry appears in both days
+- **GIVEN** a time entry from 23:00 on day D to 01:00 on day D+1
+- **WHEN** viewing Time Block day view for day D
+- **THEN** the entry is rendered for the 23:00–24:00 portion
+- **WHEN** viewing Time Block day view for day D+1
+- **THEN** the entry is rendered for the 00:00–01:00 portion
 

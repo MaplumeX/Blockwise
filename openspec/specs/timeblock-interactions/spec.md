@@ -49,3 +49,11 @@ Non-selected segments MAY be visually de-emphasized while maintaining readabilit
 - **WHEN** the day grid is rendered
 - **THEN** the selected entry is clearly distinguished from others
 
+### Requirement: Cross-Day Marker Is Shown At Most Once Per Entry In Time Block
+When a cross-day TimeEntry is rendered as multiple hour-row segments in the Time Block day view, the system SHALL show the cross-day marker at most once for that entry within the selected day.
+
+#### Scenario: Marker shown only once across hour segments
+- **GIVEN** a cross-day time entry rendered as multiple hour segments within the selected day
+- **WHEN** the Time Block day view is rendered
+- **THEN** the cross-day marker is shown on at most one segment
+

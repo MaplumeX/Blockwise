@@ -31,8 +31,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
+import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import kotlin.math.roundToInt
 
@@ -90,8 +93,24 @@ fun TimeBlockDayView(
     var rangeSelection by remember { mutableStateOf<Pair<Int, Int>?>(null) }
     var isRangeSelectionActive by remember { mutableStateOf(false) }
 
-    val positionedEntries = remember(entries) {
-        calculatePositionedEntries(entries)
+    val positionedEntries = remember(date, entries) {
+        val tz = TimeZone.currentSystemDefault()
+        val dayStart = LocalDateTime(date, LocalTime(0, 0)).toInstant(tz)
+        val dayEnd = LocalDateTime(date.plus(1, kotlinx.datetime.DateTimeUnit.DAY), LocalTime(0, 0)).toInstant(tz)
+
+        val sliced = entries.mapNotNull { entry ->
+            val start = maxOf(entry.startTime, dayStart)
+            val end = minOf(entry.endTime, dayEnd)
+            if (end <= start) return@mapNotNull null
+
+            entry.copy(
+                startTime = start,
+                endTime = end,
+                durationMinutes = ((end.toEpochMilliseconds() - start.toEpochMilliseconds()) / 60_000L).toInt()
+            )
+        }
+
+        calculatePositionedEntries(sliced)
     }
 
     val gridColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)

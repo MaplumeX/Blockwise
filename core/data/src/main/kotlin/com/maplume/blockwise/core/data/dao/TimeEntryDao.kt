@@ -63,6 +63,16 @@ interface TimeEntryDao {
     @Query(
         """
         SELECT * FROM time_entries
+        WHERE start_time < :endTime AND end_time > :startTime
+        ORDER BY start_time ASC
+        """
+    )
+    fun getOverlappingWithDetails(startTime: Long, endTime: Long): Flow<List<TimeEntryWithDetails>>
+
+    @Transaction
+    @Query(
+        """
+        SELECT * FROM time_entries
         WHERE start_time >= :dayStart AND start_time < :dayEnd
         ORDER BY start_time ASC
         """

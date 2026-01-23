@@ -7,10 +7,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 
-/**
- * Use case for getting comprehensive period statistics.
- * Aggregates all statistics dimensions for a given period.
- */
 class GetPeriodStatisticsUseCase @Inject constructor(
     private val getStatsByActivityType: GetStatsByActivityTypeUseCase,
     private val getStatsByTag: GetStatsByTagUseCase,
@@ -18,12 +14,6 @@ class GetPeriodStatisticsUseCase @Inject constructor(
     private val getHourlyDistribution: GetHourlyDistributionUseCase,
     private val getStatisticsSummary: GetStatisticsSummaryUseCase
 ) {
-    /**
-     * Get comprehensive statistics for a period.
-     * Combines all statistics dimensions into a single data class.
-     * @param period The period to analyze.
-     * @return Flow of period statistics.
-     */
     operator fun invoke(period: StatisticsPeriod): Flow<PeriodStatistics> {
         val startTime = period.startTime
         val endTime = period.endTime
@@ -45,9 +35,6 @@ class GetPeriodStatisticsUseCase @Inject constructor(
         }
     }
 
-    /**
-     * Convert suspend function to Flow for combine operation.
-     */
     private fun getSummaryFlow(period: StatisticsPeriod) = flow {
         emit(getStatisticsSummary.withComparison(period))
     }

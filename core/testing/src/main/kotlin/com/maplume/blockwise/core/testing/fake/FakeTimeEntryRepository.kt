@@ -11,43 +11,24 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
-/**
- * Fake implementation of TimeEntryRepository for testing.
- * Stores entries in memory and provides controllable behavior.
- */
 class FakeTimeEntryRepository : TimeEntryRepository {
+
 
     private val entries = MutableStateFlow<List<TimeEntry>>(emptyList())
     private var nextId = 1L
 
-    /**
-     * Function to convert TimeEntryInput to TimeEntry.
-     * Must be set before using create/update methods.
-     */
     var inputToEntryMapper: ((TimeEntryInput, Long) -> TimeEntry)? = null
 
-    /**
-     * Control whether operations should fail.
-     */
     var shouldFail = false
     var failureException: Exception = RuntimeException("Test failure")
 
-    /**
-     * Get all entries for inspection.
-     */
     fun getAllEntries(): List<TimeEntry> = entries.value
 
-    /**
-     * Set entries directly for testing.
-     */
     fun setEntries(newEntries: List<TimeEntry>) {
         entries.value = newEntries
         nextId = (newEntries.maxOfOrNull { it.id } ?: 0) + 1
     }
 
-    /**
-     * Clear all entries.
-     */
     fun clear() {
         entries.value = emptyList()
         nextId = 1L
@@ -104,6 +85,14 @@ class FakeTimeEntryRepository : TimeEntryRepository {
                 val tz = TimeZone.currentSystemDefault()
                 val entryDate = entry.startTime.toLocalDateTime(tz).date
                 entryDate == date
+            }
+        }
+    }
+
+    override fun getOverlapping(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>> {
+        return entries.map { list ->
+            list.filter { entry ->
+                entry.startTime < endTime && entry.endTime > startTime
             }
         }
     }

@@ -69,6 +69,13 @@ class TimeEntryRepositoryImpl @Inject constructor(
         ).map { list -> list.map { it.toDomain() } }
     }
 
+    override fun getOverlapping(startTime: Instant, endTime: Instant): Flow<List<TimeEntry>> {
+        return timeEntryDao.getOverlappingWithDetails(
+            startTime.toEpochMilliseconds(),
+            endTime.toEpochMilliseconds()
+        ).map { list -> list.map { it.toDomain() } }
+    }
+
     override fun getRecent(limit: Int, offset: Int): Flow<List<TimeEntry>> {
         return timeEntryDao.getRecentWithDetails(limit, offset)
             .map { list -> list.map { it.toDomain() } }
