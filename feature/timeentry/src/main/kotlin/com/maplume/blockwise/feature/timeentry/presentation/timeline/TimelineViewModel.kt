@@ -51,7 +51,8 @@ enum class TimelineEntrySheetMode {
 }
 
 internal data class TimelineCreatePrefill(
-    val baseDate: LocalDate,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
     val startTime: LocalTime,
     val endTime: LocalTime
 )
@@ -64,16 +65,19 @@ internal fun defaultPrefillForSelectedTimelineDate(
     val nowLocal = now.toLocalDateTime(timeZone)
     val today = nowLocal.date
 
-    val baseDate = if (selectedDate == today) {
-        today
-    } else {
-        selectedDate
+    val earliest = today.minus(29, DateTimeUnit.DAY)
+
+    val startDate = when {
+        selectedDate > today -> today
+        selectedDate < earliest -> earliest
+        else -> selectedDate
     }
 
     val alignedTime = LocalTime(nowLocal.hour, nowLocal.minute)
 
     return TimelineCreatePrefill(
-        baseDate = baseDate,
+        startDate = startDate,
+        endDate = startDate,
         startTime = alignedTime,
         endTime = alignedTime
     )
@@ -112,7 +116,8 @@ data class TimelineUiState(
 
 data class TimeEntryDraft(
     val entryId: Long,
-    val baseDate: LocalDate,
+    val startDate: LocalDate,
+    val endDate: LocalDate,
     val startTime: LocalTime,
     val endTime: LocalTime,
     val activityId: Long,
@@ -121,16 +126,21 @@ data class TimeEntryDraft(
     val adjacentUpEntryId: Long?,
     val adjacentDownEntryId: Long?
 ) {
+    val startInstant
+        get() = startDate.atTime(startTime).toInstant(TimeZone.currentSystemDefault())
+
+    val endInstant
+        get() = endDate.atTime(endTime).toInstant(TimeZone.currentSystemDefault())
+
+    val isValid: Boolean
+        get() = endInstant > startInstant
+
     val durationSeconds: Int
         get() {
-            val startSeconds = startTime.hour * 3600 + startTime.minute * 60 + startTime.second
-            var endSeconds = endTime.hour * 3600 + endTime.minute * 60 + endTime.second
-
-            if (endSeconds <= startSeconds) {
-                endSeconds += 24 * 3600
-            }
-
-            return endSeconds - startSeconds
+            val start = startInstant
+            val end = endInstant
+            val seconds = ((end.toEpochMilliseconds() - start.toEpochMilliseconds()) / 1000).toInt()
+            return seconds.coerceAtLeast(0)
         }
 }
 
@@ -316,7 +326,8 @@ class TimelineViewModel @Inject constructor(
                 sheetMode = TimelineEntrySheetMode.CREATE,
                 sheetDraft = TimeEntryDraft(
                     entryId = 0L,
-                    baseDate = prefill.baseDate,
+                    startDate = prefill.startDate,
+                    endDate = prefill.endDate,
                     startTime = prefill.startTime,
                     endTime = prefill.endTime,
                     activityId = it.activityTypes.firstOrNull()?.id ?: 0L,
@@ -333,15 +344,10 @@ class TimelineViewModel @Inject constructor(
         val draft = _uiState.value.sheetDraft ?: return
         if (_uiState.value.sheetMode != TimelineEntrySheetMode.CREATE) return
 
-        if (draft.endTime <= draft.startTime) return
+        if (!draft.isValid) return
 
-        val tz = TimeZone.currentSystemDefault()
-        val startInstant = draft.baseDate.atTime(draft.startTime).toInstant(tz)
-        var endInstant = draft.baseDate.atTime(draft.endTime).toInstant(tz)
-        if (endInstant <= startInstant) {
-
-            endInstant = endInstant.plus(1, DateTimeUnit.DAY, tz)
-        }
+        val startInstant = draft.startInstant
+        val endInstant = draft.endInstant
 
         val input = TimeEntryInput(
             activityId = draft.activityId,
@@ -392,7 +398,8 @@ class TimelineViewModel @Inject constructor(
             it.copy(
                 sheetDraft = TimeEntryDraft(
                     entryId = entry.id,
-                    baseDate = startDateTime.date,
+                    startDate = startDateTime.date,
+                    endDate = endDateTime.date,
                     startTime = startDateTime.time,
                     endTime = endDateTime.time,
                     activityId = entry.activityId,
@@ -428,6 +435,21 @@ class TimelineViewModel @Inject constructor(
         }
     }
 
+    fun onDraftStartDateChange(date: LocalDate) {
+        _uiState.update { state ->
+            val draft = state.sheetDraft ?: return
+            state.copy(sheetDraft = draft.copy(startDate = date))
+        }
+    }
+
+    fun onDraftEndDateChange(date: LocalDate) {
+        _uiState.update { state ->
+            val draft = state.sheetDraft ?: return
+            state.copy(sheetDraft = draft.copy(endDate = date))
+        }
+    }
+
+
     fun onDraftEndTimeChange(time: LocalTime) {
         _uiState.update { state ->
             val draft = state.sheetDraft ?: return
@@ -438,7 +460,21 @@ class TimelineViewModel @Inject constructor(
                 time
             }
 
-            state.copy(sheetDraft = draft.copy(endTime = resolved))
+            if (resolved == draft.endTime) {
+                state
+            } else {
+                var nextEndDate = draft.endDate
+                if (draft.endDate == draft.startDate && resolved <= draft.startTime) {
+                    val tz = TimeZone.currentSystemDefault()
+                    val today = Clock.System.now().toLocalDateTime(tz).date
+                    val inferred = draft.startDate.plus(1, DateTimeUnit.DAY)
+                    if (inferred <= today) {
+                        nextEndDate = inferred
+                    }
+                }
+
+                state.copy(sheetDraft = draft.copy(endDate = nextEndDate, endTime = resolved))
+            }
         }
     }
 
@@ -472,12 +508,13 @@ class TimelineViewModel @Inject constructor(
         val draft = _uiState.value.sheetDraft ?: return
         val entry = findEntryById(draft.entryId) ?: return
 
-        val tz = TimeZone.currentSystemDefault()
-        val startInstant = draft.baseDate.atTime(draft.startTime).toInstant(tz)
-        var endInstant = draft.baseDate.atTime(draft.endTime).toInstant(tz)
-        if (endInstant <= startInstant) {
-            endInstant = endInstant.plus(1, DateTimeUnit.DAY, tz)
+        if (!draft.isValid) {
+            viewModelScope.launch { _events.emit(TimelineEvent.Error("结束时间需晚于起始时间")) }
+            return
         }
+
+        val startInstant = draft.startInstant
+        val endInstant = draft.endInstant
 
         val input = TimeEntryInput(
             activityId = draft.activityId,

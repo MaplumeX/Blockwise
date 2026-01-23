@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -63,7 +64,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.maplume.blockwise.core.domain.model.ActivityType
 import com.maplume.blockwise.core.domain.model.Tag
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.mapNotNull
 import androidx.compose.runtime.snapshotFlow
@@ -78,7 +86,9 @@ internal fun TimelineEntryBottomSheet(
     canMergeDown: Boolean,
     isCreateMode: Boolean = false,
     onDismiss: () -> Unit,
+    onStartDateChange: (LocalDate) -> Unit,
     onStartTimeChange: (LocalTime) -> Unit,
+    onEndDateChange: (LocalDate) -> Unit,
     onEndTimeChange: (LocalTime) -> Unit,
     onActivitySelect: (Long) -> Unit,
     onTagToggle: (Long) -> Unit,
@@ -141,11 +151,15 @@ internal fun TimelineEntryBottomSheet(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     TimeEditorSection(
+                        startDate = draft.startDate,
                         startTime = draft.startTime,
+                        endDate = draft.endDate,
                         endTime = draft.endTime,
                         durationSeconds = draft.durationSeconds,
-                        isCreateMode = isCreateMode,
+                        isValid = draft.isValid,
+                        onStartDateChange = onStartDateChange,
                         onStartTimeChange = onStartTimeChange,
+                        onEndDateChange = onEndDateChange,
                         onEndTimeChange = onEndTimeChange
                     )
 
@@ -172,7 +186,7 @@ internal fun TimelineEntryBottomSheet(
 
                 BottomActionRow(
                     isCreateMode = isCreateMode,
-                    isValid = if (isCreateMode) draft.endTime > draft.startTime else true,
+                    isValid = draft.isValid,
                     onSave = onSave,
                     onSplit = onSplit
                 )
@@ -224,11 +238,15 @@ private fun TopIconRow(
 
 @Composable
 private fun TimeEditorSection(
+    startDate: LocalDate,
     startTime: LocalTime,
+    endDate: LocalDate,
     endTime: LocalTime,
     durationSeconds: Int,
-    isCreateMode: Boolean,
+    isValid: Boolean,
+    onStartDateChange: (LocalDate) -> Unit,
     onStartTimeChange: (LocalTime) -> Unit,
+    onEndDateChange: (LocalDate) -> Unit,
     onEndTimeChange: (LocalTime) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -241,21 +259,25 @@ private fun TimeEditorSection(
         ) {
             TimeWheel(
                 label = "开始",
-                selected = startTime,
-                onSelected = onStartTimeChange,
+                selectedDate = startDate,
+                selectedTime = startTime,
+                onDateSelected = onStartDateChange,
+                onTimeSelected = onStartTimeChange,
                 testTagPrefix = "start",
                 modifier = Modifier.weight(1f)
             )
             TimeWheel(
                 label = "结束",
-                selected = endTime,
-                onSelected = onEndTimeChange,
+                selectedDate = endDate,
+                selectedTime = endTime,
+                onDateSelected = onEndDateChange,
+                onTimeSelected = onEndTimeChange,
                 testTagPrefix = "end",
                 modifier = Modifier.weight(1f)
             )
         }
 
-        if (isCreateMode && endTime <= startTime) {
+        if (!isValid) {
             Text(
                 text = "结束时间需晚于起始时间",
                 style = MaterialTheme.typography.bodySmall,
@@ -275,19 +297,22 @@ private fun TimeEditorSection(
 @Composable
 private fun TimeWheel(
     label: String,
-    selected: LocalTime,
-    onSelected: (LocalTime) -> Unit,
+    selectedDate: LocalDate,
+    selectedTime: LocalTime,
+    onDateSelected: (LocalDate) -> Unit,
+    onTimeSelected: (LocalTime) -> Unit,
     testTagPrefix: String,
     modifier: Modifier = Modifier
 ) {
+    val tz = TimeZone.currentSystemDefault()
+    val today = Clock.System.now().toLocalDateTime(tz).date
+    val dates = remember(today) {
+        val start = today.minus(29, DateTimeUnit.DAY)
+        (0..29).map { offset -> start.plus(offset, DateTimeUnit.DAY) }
+    }
+
     val hours = (0..23).toList()
     val minutes = (0..59).toList()
-
-    val hourState = rememberLazyListState(initialFirstVisibleItemIndex = selected.hour)
-    val minuteState = rememberLazyListState(initialFirstVisibleItemIndex = selected.minute)
-
-    val hourFlingBehavior = rememberSnapFlingBehavior(lazyListState = hourState)
-    val minuteFlingBehavior = rememberSnapFlingBehavior(lazyListState = minuteState)
 
     fun centeredIndex(state: LazyListState): Int? {
         val layout = state.layoutInfo
@@ -300,6 +325,18 @@ private fun TimeWheel(
             ?.index
     }
 
+    val dateIndex = dates.indexOf(selectedDate).coerceAtLeast(0)
+    val hourState = rememberLazyListState(initialFirstVisibleItemIndex = selectedTime.hour)
+    val minuteState = rememberLazyListState(initialFirstVisibleItemIndex = selectedTime.minute)
+    val dateState = rememberLazyListState(initialFirstVisibleItemIndex = dateIndex)
+
+    val hourFlingBehavior = rememberSnapFlingBehavior(lazyListState = hourState)
+    val minuteFlingBehavior = rememberSnapFlingBehavior(lazyListState = minuteState)
+    val dateFlingBehavior = rememberSnapFlingBehavior(lazyListState = dateState)
+
+    val centeredDateIndex by remember {
+        derivedStateOf { centeredIndex(dateState) }
+    }
     val centeredHourIndex by remember {
         derivedStateOf { centeredIndex(hourState) }
     }
@@ -307,15 +344,19 @@ private fun TimeWheel(
         derivedStateOf { centeredIndex(minuteState) }
     }
 
-    LaunchedEffect(hourState, minuteState) {
-        snapshotFlow { centeredHourIndex to centeredMinuteIndex }
-            .mapNotNull { (hIdx, mIdx) ->
+    LaunchedEffect(dateState, hourState, minuteState) {
+        snapshotFlow { Triple(centeredDateIndex, centeredHourIndex, centeredMinuteIndex) }
+            .mapNotNull { (dIdx, hIdx, mIdx) ->
+                val date = dates.getOrNull(dIdx ?: return@mapNotNull null) ?: return@mapNotNull null
                 val hour = hIdx?.coerceIn(0, 23) ?: return@mapNotNull null
                 val minute = mIdx?.coerceIn(0, 59) ?: return@mapNotNull null
-                LocalTime(hour, minute)
+                Triple(date, hour, minute)
             }
             .distinctUntilChanged()
-            .collect { onSelected(it) }
+            .collect { (date, hour, minute) ->
+                onDateSelected(date)
+                onTimeSelected(LocalTime(hour, minute))
+            }
     }
 
     Column(modifier = modifier) {
@@ -333,9 +374,21 @@ private fun TimeWheel(
                 .fillMaxWidth()
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
+                DateWheelColumn(
+                    dates = dates,
+                    selectedDate = selectedDate,
+                    state = dateState,
+                    flingBehavior = dateFlingBehavior,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("${testTagPrefix}DateWheel")
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
                 WheelColumn(
                     values = hours,
-                    selectedValue = selected.hour,
+                    selectedValue = selectedTime.hour,
                     state = hourState,
                     flingBehavior = hourFlingBehavior,
                     formatValue = { String.format("%02d", it) },
@@ -348,7 +401,7 @@ private fun TimeWheel(
 
                 WheelColumn(
                     values = minutes,
-                    selectedValue = selected.minute,
+                    selectedValue = selectedTime.minute,
                     state = minuteState,
                     flingBehavior = minuteFlingBehavior,
                     formatValue = { String.format("%02d", it) },
@@ -373,11 +426,57 @@ private fun TimeWheel(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = String.format("%02d:%02d", selected.hour, selected.minute),
+            text = String.format("%02d:%02d", selectedTime.hour, selectedTime.minute),
             modifier = Modifier.testTag("${testTagPrefix}SelectedTimeText"),
             style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun DateWheelColumn(
+    dates: List<LocalDate>,
+    selectedDate: LocalDate,
+    state: LazyListState,
+    flingBehavior: FlingBehavior,
+    modifier: Modifier = Modifier
+) {
+    val tz = TimeZone.currentSystemDefault()
+    val today = Clock.System.now().toLocalDateTime(tz).date
+
+    fun labelFor(date: LocalDate): String {
+        if (date == today) return "今天"
+        return String.format("%02d/%02d", date.monthNumber, date.dayOfMonth)
+    }
+
+    LazyColumn(
+        modifier = modifier,
+        state = state,
+        flingBehavior = flingBehavior,
+        contentPadding = PaddingValues(vertical = 42.dp)
+    ) {
+        items(dates.size) { idx ->
+            val date = dates[idx]
+            val isActive = date == selectedDate
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = labelFor(date),
+                    style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = if (isActive) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                )
+            }
+        }
     }
 }
 

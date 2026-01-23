@@ -15,8 +15,8 @@ import com.maplume.blockwise.core.domain.model.Tag
 import com.maplume.blockwise.core.domain.model.TimeEntry
 import kotlinx.datetime.Clock
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
-import kotlinx.datetime.toEpochDays
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -41,7 +41,7 @@ class TimeEntryItemTest {
         val endStr = if (
             endLocal.hour == 0 &&
                 endLocal.minute == 0 &&
-                endLocal.date.toEpochDays() == startLocal.date.toEpochDays() + 1
+                endLocal.date == startLocal.date.plus(1, kotlinx.datetime.DateTimeUnit.DAY)
         ) {
             "24:00"
         } else {

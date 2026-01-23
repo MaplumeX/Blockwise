@@ -174,8 +174,8 @@ class CreateTimeEntryUseCaseTest {
         }
 
         @Test
-        @DisplayName("duration exceeds 24 hours fails")
-        fun `duration exceeds 24 hours fails`() = runTest {
+        @DisplayName("duration exceeds 24 hours succeeds")
+        fun `duration exceeds 24 hours succeeds`() = runTest {
             // Given
             val now = Clock.System.now()
             val input = TimeEntryInput(
@@ -190,10 +190,7 @@ class CreateTimeEntryUseCaseTest {
             val result = useCase(input)
 
             // Then
-            assertTrue(result.isFailure)
-            val exception = result.exceptionOrNull()
-            assertTrue(exception is IllegalArgumentException)
-            assertTrue(exception?.message?.contains("24") == true)
+            assertTrue(result.isSuccess)
         }
 
         @Test

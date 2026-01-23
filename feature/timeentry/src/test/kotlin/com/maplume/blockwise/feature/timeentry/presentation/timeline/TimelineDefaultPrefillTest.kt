@@ -23,7 +23,8 @@ class TimelineDefaultPrefillTest {
             timeZone = tz
         )
 
-        assertEquals(LocalDate(2026, 1, 20), prefill.baseDate)
+        assertEquals(LocalDate(2026, 1, 20), prefill.startDate)
+        assertEquals(LocalDate(2026, 1, 20), prefill.endDate)
         assertEquals(10, prefill.startTime.hour)
         assertEquals(15, prefill.startTime.minute)
         assertEquals(10, prefill.endTime.hour)
@@ -31,7 +32,7 @@ class TimelineDefaultPrefillTest {
     }
 
     @Test
-    fun `selected date is not today uses selected date`() {
+    fun `selected date is before today uses selected date`() {
         val now = Instant.parse("2026-01-20T10:15:59Z")
         val selectedDate = LocalDate(2026, 1, 10)
 
@@ -41,7 +42,8 @@ class TimelineDefaultPrefillTest {
             timeZone = tz
         )
 
-        assertEquals(LocalDate(2026, 1, 10), prefill.baseDate)
+        assertEquals(LocalDate(2026, 1, 10), prefill.startDate)
+        assertEquals(LocalDate(2026, 1, 10), prefill.endDate)
         assertEquals(10, prefill.startTime.hour)
         assertEquals(15, prefill.startTime.minute)
     }
@@ -60,5 +62,20 @@ class TimelineDefaultPrefillTest {
         assertEquals(10, prefill.startTime.hour)
         assertEquals(15, prefill.startTime.minute)
         assertEquals(prefill.startTime, prefill.endTime)
+    }
+
+    @Test
+    fun `selected date is after today clamps to today`() {
+        val now = Instant.parse("2026-01-20T10:15:59Z")
+        val selectedDate = LocalDate(2026, 1, 21)
+
+        val prefill = defaultPrefillForSelectedTimelineDate(
+            selectedDate = selectedDate,
+            now = now,
+            timeZone = tz
+        )
+
+        assertEquals(LocalDate(2026, 1, 20), prefill.startDate)
+        assertEquals(LocalDate(2026, 1, 20), prefill.endDate)
     }
 }

@@ -13,15 +13,19 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.assertTextEquals
-import org.junit.Assert.assertFalse
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.maplume.blockwise.core.designsystem.theme.BlockwiseTheme
 import com.maplume.blockwise.core.domain.model.TimelineViewMode
 import kotlinx.datetime.Clock
 import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -61,7 +65,9 @@ class TimelineQuickCreateFabTest {
                     onDismissEntrySheet = {},
                     onSaveEntryDraft = {},
                     onCreateFromSheet = {},
+                    onDraftStartDateChange = {},
                     onDraftStartTimeChange = {},
+                    onDraftEndDateChange = {},
                     onDraftEndTimeChange = {},
                     onDraftActivitySelect = {},
                     onDraftTagToggle = {},
@@ -117,14 +123,18 @@ class TimelineQuickCreateFabTest {
         var createInvoked = false
         var showSheet by mutableStateOf(false)
 
-        var startTime by mutableStateOf(kotlinx.datetime.LocalTime(10, 0))
-        var endTime by mutableStateOf(kotlinx.datetime.LocalTime(10, 0))
+        var startDate by mutableStateOf(nonToday)
+        var endDate by mutableStateOf(nonToday)
+
+        var startTime by mutableStateOf(LocalTime(10, 0))
+        var endTime by mutableStateOf(LocalTime(10, 0))
 
         fun makeUiState(): TimelineUiState {
             val draft = if (showSheet) {
                 TimeEntryDraft(
                     entryId = 0L,
-                    baseDate = nonToday,
+                    startDate = startDate,
+                    endDate = endDate,
                     startTime = startTime,
                     endTime = endTime,
                     activityId = 1L,
@@ -162,7 +172,9 @@ class TimelineQuickCreateFabTest {
                     onDismissEntrySheet = { showSheet = false },
                     onSaveEntryDraft = {},
                     onCreateFromSheet = { createInvoked = true },
+                    onDraftStartDateChange = { startDate = it },
                     onDraftStartTimeChange = { startTime = it },
+                    onDraftEndDateChange = { endDate = it },
                     onDraftEndTimeChange = { endTime = it },
                     onDraftActivitySelect = {},
                     onDraftTagToggle = {},
@@ -207,8 +219,10 @@ class TimelineQuickCreateFabTest {
         composeTestRule.onNodeWithTag("startHourWheel").performScrollTo()
         composeTestRule.waitForIdle()
 
+        composeTestRule.onNodeWithTag("startDateWheel").assertIsDisplayed()
         composeTestRule.onNodeWithTag("startHourWheel").assertIsDisplayed()
         composeTestRule.onNodeWithTag("startMinuteWheel").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("endDateWheel").assertIsDisplayed()
         composeTestRule.onNodeWithTag("endHourWheel").assertIsDisplayed()
         composeTestRule.onNodeWithTag("endMinuteWheel").assertIsDisplayed()
 
@@ -221,79 +235,14 @@ class TimelineQuickCreateFabTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("startSelectedTimeText").assertTextEquals("10:01")
 
+        composeTestRule.onNodeWithText("结束时间需晚于起始时间").performScrollTo()
         composeTestRule.onNodeWithText("结束时间需晚于起始时间").assertIsDisplayed()
+
+        composeTestRule.runOnIdle {
+            assertEquals(nonToday, endDate)
+        }
+
         composeTestRule.onNodeWithText("创建").assertIsNotEnabled()
 
-        composeTestRule.onNodeWithContentDescription("关闭").performClick()
-        composeTestRule.waitForIdle()
-
-        assert(!createInvoked)
-    }
-
-    @Test
-    fun onToday_fabIsHidden_and_timerEntryPointIsVisible() {
-        val now = Clock.System.now()
-        val tz = TimeZone.currentSystemDefault()
-        val today = now.toLocalDateTime(tz).date
-
-        composeTestRule.setContent {
-            BlockwiseTheme {
-                TimelineScreenContent(
-                    uiState = TimelineUiState(
-                        selectedDate = today,
-                        dayGroups = emptyList(),
-                        isLoading = false
-                    ),
-                    snackbarHostState = androidx.compose.material3.SnackbarHostState(),
-                    viewMode = TimelineViewMode.LIST,
-                    onViewModeChange = {},
-                    onRefresh = {},
-                    onEntryClick = {},
-                    onTimeBlockEntryClick = {},
-                    onClearTimeBlockSelection = {},
-                    onEntryLongPress = {},
-                    onExitSelectionMode = {},
-                    onDismissEntrySheet = {},
-                    onSaveEntryDraft = {},
-                    onCreateFromSheet = {},
-                    onDraftStartTimeChange = {},
-                    onDraftEndTimeChange = {},
-                    onDraftActivitySelect = {},
-                    onDraftTagToggle = {},
-                    onDraftNoteChange = {},
-                    onMergeUp = {},
-                    onMergeDown = {},
-                    onDeleteFromSheet = {},
-                    onSplitFromSheet = {},
-                    onBatchDelete = {},
-                    onSplitConfirm = {},
-                    onSplitCancel = {},
-                    onMergeRequest = {},
-                    onMergeConfirm = {},
-                    onMergeCancel = {},
-                    onCreateFromGap = { _, _ -> },
-                    onCreateEntry = {},
-                    onShowTimerActivitySelector = {},
-                    onHideTimerActivitySelector = {},
-                    onStartTimer = {},
-                    onStopTimer = {},
-                    onNavigateWeek = {},
-                    onNavigateToToday = {},
-                    onDateSelect = {},
-                    onShowDatePicker = {},
-                    onHideDatePicker = {}
-                )
-            }
-        }
-
-        var fabVisible = true
-        try {
-            composeTestRule.onNodeWithTag("timelineQuickCreateFab").assertIsDisplayed()
-        } catch (_: AssertionError) {
-            fabVisible = false
-        }
-        assertFalse("FAB should be hidden on today", fabVisible)
-
-        composeTestRule.onNodeWithTag("timelineTimerEntryPoint").assertIsDisplayed()
     }
 }

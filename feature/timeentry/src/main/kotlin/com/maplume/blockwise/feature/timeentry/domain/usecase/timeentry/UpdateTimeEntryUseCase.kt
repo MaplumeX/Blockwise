@@ -21,19 +21,12 @@ class UpdateTimeEntryUseCase @Inject constructor(
      */
     suspend operator fun invoke(id: Long, input: TimeEntryInput): Result<Unit> {
         // Validate time entry exists
-        val existing = repository.getById(id)
+        repository.getById(id)
             ?: return Result.failure(IllegalArgumentException("时间记录不存在"))
 
         // Validate time range
         if (input.startTime >= input.endTime) {
             return Result.failure(IllegalArgumentException("结束时间必须晚于开始时间"))
-        }
-
-
-        if (input.durationMinutes > MAX_DURATION_MINUTES) {
-            return Result.failure(
-                IllegalArgumentException("单次记录时长不能超过${MAX_DURATION_MINUTES / 60}小时")
-            )
         }
 
         // Validate activity type exists and is active
@@ -53,7 +46,4 @@ class UpdateTimeEntryUseCase @Inject constructor(
         }
     }
 
-    companion object {
-        const val MAX_DURATION_MINUTES = 24 * 60 // 24 hours
-    }
 }

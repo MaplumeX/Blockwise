@@ -24,13 +24,6 @@ class CreateTimeEntryUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("结束时间必须晚于开始时间"))
         }
 
-
-        if (input.durationMinutes > MAX_DURATION_MINUTES) {
-            return Result.failure(
-                IllegalArgumentException("单次记录时长不能超过${MAX_DURATION_MINUTES / 60}小时")
-            )
-        }
-
         // Validate activity type exists and is active
         val activityType = activityTypeRepository.getById(input.activityId)
         if (activityType == null) {
@@ -48,7 +41,4 @@ class CreateTimeEntryUseCase @Inject constructor(
         }
     }
 
-    companion object {
-        const val MAX_DURATION_MINUTES = 24 * 60 // 24 hours
-    }
 }

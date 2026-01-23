@@ -314,30 +314,29 @@ If end time is less than or equal to start time, the time area SHALL display a v
 
 ### Requirement: Bottom Sheet Content - Time Range Editing
 The Bottom Sheet SHALL provide start and end time controls in a single row.
-Each time control (start and end) SHALL use wheel-based pickers composed of two aligned wheel columns:
+Each time control (start and end) SHALL use wheel-based pickers composed of three aligned wheel columns:
+- Date wheel: one-day step, non-cyclic, and restricted to today and the previous 29 days (inclusive).
 - Hour wheel: values 00–23 with a 1-hour step.
 - Minute wheel: values 00–59 with a 1-minute step.
-The selected time for each control SHALL be displayed in `HH:mm` format using a monospace font and SHALL update immediately as the wheels change.
-When the user changes either time value, the system SHALL update the displayed duration immediately.
+The date wheel column SHALL be placed to the left of the hour wheel (column order: date -> hour -> minute).
+The selected start and end time points SHALL update immediately as the wheels change.
+When the user changes any wheel value, the system SHALL update the displayed duration immediately.
 
-#### Scenario: Start and end time controls each have hour and minute wheels
+#### Scenario: Start and end controls each have date/hour/minute wheels
 - **GIVEN** the Bottom Sheet is visible
 - **WHEN** the user views the start time control
-- **THEN** the start time control shows two wheel columns: hour (00–23) and minute (00–59)
-- **AND** the hour wheel steps by 1 hour and the minute wheel steps by 1 minute
+- **THEN** the start time control shows three wheel columns: date, hour, and minute
+- **AND** the date wheel is non-cyclic and allows only the last 30 days (including today)
+- **AND** the hour wheel ranges 00–23 and steps by 1 hour
+- **AND** the minute wheel ranges 00–59 and steps by 1 minute
 - **WHEN** the user views the end time control
-- **THEN** the end time control shows two wheel columns: hour (00–23) and minute (00–59)
+- **THEN** the end time control shows three wheel columns: date, hour, and minute
 
-#### Scenario: Selected time updates immediately in HH:mm as wheels change
-- **GIVEN** the Bottom Sheet is visible
-- **WHEN** the user scrolls the hour wheel for a time control
-- **THEN** the displayed selected time updates immediately in `HH:mm` format
-- **WHEN** the user scrolls the minute wheel for a time control
-- **THEN** the displayed selected time updates immediately in `HH:mm` format
-
-#### Scenario: Duration updates immediately when time changes
+#### Scenario: Duration updates immediately when any wheel changes
 - **GIVEN** the Bottom Sheet is visible for a time entry with a duration
-- **WHEN** the user changes the start time using the wheel pickers
+- **WHEN** the user changes the start date or time using the wheel pickers
+- **THEN** the displayed duration updates immediately
+- **WHEN** the user changes the end date or time using the wheel pickers
 - **THEN** the displayed duration updates immediately
 
 ### Requirement: Bottom Sheet Content - Activity Type Quick Selection
@@ -433,4 +432,40 @@ While a timer is running, the Timeline timer entry point SHALL NOT allow enterin
 - **WHEN** the Timeline screen is rendered
 - **THEN** the timer entry point label is "完成"
 - **AND** tapping it triggers the stop flow rather than the start flow
+
+### Requirement: Time Editor Cross-Day Auto-Inference (No Future Dates)
+When the user is editing time points using the Timeline Bottom Sheet time wheels, the system SHALL support a cross-day auto-inference rule to reduce friction.
+If the end date equals the start date and the user sets the end time-of-day to less than or equal to the start time-of-day, the system SHALL adjust the end date to the next day (start date + 1 day) and SHALL update the UI immediately.
+If adjusting the end date to the next day would result in a future date (later than today), the system SHALL NOT auto-adjust the end date and SHALL treat the input as invalid.
+
+#### Scenario: Auto-infer next-day end when start date is before today
+- **GIVEN** the start date is before today
+- **AND** the end date equals the start date
+- **WHEN** the user sets the end time-of-day to less than or equal to the start time-of-day
+- **THEN** the end date is automatically adjusted to start date + 1 day
+- **AND** the displayed duration updates immediately
+
+#### Scenario: Do not auto-infer into the future
+- **GIVEN** the start date is today
+- **AND** the end date equals the start date
+- **WHEN** the user sets the end time-of-day to less than or equal to the start time-of-day
+- **THEN** the end date is not automatically adjusted to tomorrow
+- **AND** the primary bottom action remains disabled
+- **AND** the validation message "结束时间需晚于起始时间" is shown
+
+### Requirement: Edit Time Constraint And Inline Validation
+In edit mode, the system SHALL require that the end time point is strictly later than the start time point.
+If the end time point is less than or equal to the start time point, the primary "保存" action SHALL be disabled.
+If the end time point is less than or equal to the start time point, the time area SHALL display a validation message: "结束时间需晚于起始时间".
+
+#### Scenario: Invalid time point disables save in edit mode
+- **GIVEN** the edit mode Bottom Sheet is visible
+- **WHEN** the end time point is less than or equal to the start time point
+- **THEN** the "保存" button is disabled
+- **AND** the validation message "结束时间需晚于起始时间" is shown in the time area
+
+#### Scenario: Valid time point enables save in edit mode
+- **GIVEN** the edit mode Bottom Sheet is visible
+- **WHEN** the end time point becomes later than the start time point
+- **THEN** the "保存" button becomes enabled
 
