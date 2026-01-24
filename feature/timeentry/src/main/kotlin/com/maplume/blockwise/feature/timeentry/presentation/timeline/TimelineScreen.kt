@@ -130,27 +130,17 @@ fun TimelineScreen(
 
     // Handle events
     LaunchedEffect(Unit) {
-        viewModel.events.collect { event ->
-             when (event) {
-                 is TimelineEvent.NavigateToEdit -> onNavigateToEdit(event.entryId)
-                 is TimelineEvent.Error -> snackbarHostState.showSnackbar(event.message)
-                 is TimelineEvent.SplitSuccess -> snackbarHostState.showSnackbar("拆分成功")
-                 is TimelineEvent.MergeSuccess -> snackbarHostState.showSnackbar("合并成功")
-                 is TimelineEvent.SaveSuccess -> snackbarHostState.showSnackbar("保存成功")
-                 is TimelineEvent.ShowDeleteUndo -> {
-                     val result = snackbarHostState.showSnackbar(
-                         message = event.message,
-                         actionLabel = event.actionLabel
-                     )
-                     if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                         viewModel.onDeleteUndo(event.token)
-                     } else {
-                         viewModel.onDeleteCommit(event.token)
-                     }
-                 }
-             }
-         }
-     }
+         viewModel.events.collect { event ->
+              when (event) {
+                  is TimelineEvent.NavigateToEdit -> onNavigateToEdit(event.entryId)
+                  is TimelineEvent.Error -> snackbarHostState.showSnackbar(event.message)
+                  is TimelineEvent.SplitSuccess -> snackbarHostState.showSnackbar("拆分成功")
+                  is TimelineEvent.MergeSuccess -> snackbarHostState.showSnackbar("合并成功")
+                  is TimelineEvent.SaveSuccess -> snackbarHostState.showSnackbar("保存成功")
+                  is TimelineEvent.DeleteSuccess -> snackbarHostState.showSnackbar(event.message)
+              }
+          }
+      }
 
 
     TimelineScreenContent(

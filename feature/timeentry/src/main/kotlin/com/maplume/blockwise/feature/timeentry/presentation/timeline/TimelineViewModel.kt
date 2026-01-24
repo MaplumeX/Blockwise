@@ -152,16 +152,10 @@ sealed class TimelineEvent {
     data object MergeSuccess : TimelineEvent()
     data object SaveSuccess : TimelineEvent()
 
-    data class ShowDeleteUndo(
-        val token: Long,
-        val message: String,
-        val actionLabel: String = "撤销"
+    data class DeleteSuccess(
+        val message: String
     ) : TimelineEvent()
 }
-
-private data class PendingDelete(
-    val entryIds: Set<Long>
-)
 
 @HiltViewModel
 class TimelineViewModel @Inject constructor(
@@ -187,9 +181,6 @@ class TimelineViewModel @Inject constructor(
     private var loadJob: Job? = null
 
     private var latestEntries: List<TimeEntry> = emptyList()
-
-    private var nextDeleteToken: Long = 1
-    private val pendingDeletesByToken = LinkedHashMap<Long, PendingDelete>()
 
     init {
         observeReferenceData()
@@ -724,57 +715,48 @@ class TimelineViewModel @Inject constructor(
         if (ids.isEmpty()) return
 
         exitSelectionMode()
-        requestDelete(ids)
+        deleteEntries(ids)
     }
 
     fun onDeleteFromSheet() {
         val entryId = _uiState.value.sheetDraft?.entryId ?: return
         dismissEntrySheet()
-        requestDelete(setOf(entryId))
+        deleteEntries(setOf(entryId))
     }
 
-    private fun requestDelete(entryIds: Set<Long>) {
-        val token = nextDeleteToken++
-        pendingDeletesByToken[token] = PendingDelete(entryIds = entryIds)
+    private fun deleteEntries(entryIds: Set<Long>) {
+        if (entryIds.isEmpty()) return
 
+        // Hide immediately to avoid a flicker while the DB deletion runs.
         _uiState.update { state ->
             state.copy(hiddenEntryIds = state.hiddenEntryIds + entryIds)
         }
         updateDayGroups()
 
         viewModelScope.launch {
-            val message = if (entryIds.size == 1) {
-                "已删除 1 条记录"
-            } else {
-                "已删除 ${entryIds.size} 条记录"
-            }
-            _events.emit(TimelineEvent.ShowDeleteUndo(token = token, message = message))
-        }
-    }
-
-    fun onDeleteUndo(token: Long) {
-        val pending = pendingDeletesByToken.remove(token) ?: return
-        _uiState.update { state ->
-            state.copy(hiddenEntryIds = state.hiddenEntryIds - pending.entryIds)
-        }
-        updateDayGroups()
-    }
-
-    fun onDeleteCommit(token: Long) {
-        val pending = pendingDeletesByToken.remove(token) ?: return
-
-        viewModelScope.launch {
             val failures = mutableListOf<Throwable>()
-            pending.entryIds.forEach { id ->
+            entryIds.forEach { id ->
                 val result = deleteTimeEntry(id)
                 result.exceptionOrNull()?.let { failures += it }
             }
 
             if (failures.isEmpty()) {
+                // Clear hidden state proactively to avoid unbounded growth.
+                _uiState.update { state ->
+                    state.copy(hiddenEntryIds = state.hiddenEntryIds - entryIds)
+                }
+                updateDayGroups()
                 refresh()
+
+                val message = if (entryIds.size == 1) {
+                    "已删除 1 条记录"
+                } else {
+                    "已删除 ${entryIds.size} 条记录"
+                }
+                _events.emit(TimelineEvent.DeleteSuccess(message = message))
             } else {
                 _uiState.update { state ->
-                    state.copy(hiddenEntryIds = state.hiddenEntryIds - pending.entryIds)
+                    state.copy(hiddenEntryIds = state.hiddenEntryIds - entryIds)
                 }
                 updateDayGroups()
                 _events.emit(TimelineEvent.Error(failures.first().message ?: "删除失败"))
