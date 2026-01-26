@@ -1,0 +1,37 @@
+schema: spec-driven
+
+# Injected into every artifact prompt. Keep it tight (50KB hard limit upstream).
+context: |
+  Project: Blockwise (Android time tracking / time-block management)
+  Platform: Android (minSdk 26, targetSdk 36, compileSdk 36), JDK 17
+  Build: Kotlin 2.0.21 + Gradle Kotlin DSL + AGP 8.13.2
+  UI: Jetpack Compose (BOM 2024.12.01) + Material 3; ViewModel + Flow/Coroutines
+  DI/Data: Hilt (KSP) + Room (KSP; export schema to core/data/schemas) + DataStore (preferences)
+  Time: use kotlinx-datetime; be explicit about timezone/Instant vs LocalDateTime; avoid ad-hoc conversions
+  Module boundaries: app can depend on all core/* + feature/*; feature/* depends only on core/* (NO feature-to-feature)
+  Quality gate: detekt maxIssues=0; follow .editorconfig (4-space indent, 120 cols, LF)
+  Kotlin style: avoid !!; prefer null-safe operators; keep imports grouped (android.*, androidx.*, com.maplume.blockwise.*, java/javax, third-party)
+
+rules:
+  proposal:
+    - Include Why / What Changes / Impact / Non-Goals (keep it scannable).
+    - List affected OpenSpec specs as repo-relative paths under openspec/specs/ (and any new specs to add).
+    - Call out module boundary implications (no feature-to-feature) and any data migration/schema impact (Room export).
+    - Include validation/testing note (at minimum ./gradlew test) and any notable risks/rollout considerations.
+
+  specs:
+    - Write requirements using SHALL/MAY and include concrete scenarios.
+    - Scenarios MUST use GIVEN/WHEN/THEN (AND as needed) in bullet form.
+    - Be explicit about time precision (minutes vs seconds) and timezone assumptions for any time behavior.
+    - Avoid implementation details; keep specs verifiable and testable.
+
+  design:
+    - Explain HOW at module/layer level (domain/data/ui) and keep within module dependency rules.
+    - Prefer minimal, localized changes; do not refactor unrelated code as part of a fix.
+    - Call out threading/dispatchers (IO vs Main) and Flow collection strategy when relevant.
+    - Document any Room/DB changes (schema export expectations) and migration strategy if applicable.
+
+  tasks:
+    - Tasks must be checkable; include evidence hints (paths/tests) for non-trivial items.
+    - Always include verification steps (at minimum ./gradlew test; add assembleDebug/connectedAndroidTest if relevant).
+    - If changing persistence (Room/DataStore), include schema export / migration verification as a task.
