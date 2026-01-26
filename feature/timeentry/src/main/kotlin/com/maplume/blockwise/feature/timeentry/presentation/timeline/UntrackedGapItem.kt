@@ -64,6 +64,7 @@ fun UntrackedGapItem(
                 .padding(start = 0.dp)
                 .padding(bottom = 8.dp)
                 .fillMaxWidth()
+                .testTag("untrackedGapCard-${startTime.toEpochMilliseconds()}-${endTime.toEpochMilliseconds()}")
                 .clip(RoundedCornerShape(12.dp))
                 .drawDashedRoundRectBorder(
                     color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),

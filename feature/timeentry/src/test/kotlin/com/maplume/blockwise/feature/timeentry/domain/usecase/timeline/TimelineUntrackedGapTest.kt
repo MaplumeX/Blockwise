@@ -180,4 +180,70 @@ class TimelineUntrackedGapTest {
         assertEquals(2, group.entryCount)
         org.junit.jupiter.api.Assertions.assertTrue(group.items.any { it is TimelineItem.UntrackedGap })
     }
+
+    @Test
+    fun `empty past selected day emits full-day untracked gap`() = runTest {
+        val date = LocalDate(2026, 1, 1)
+        val today = LocalDate(2026, 1, 2)
+
+        val group = createTimelineDayGroup(
+            date = date,
+            entries = emptyList(),
+            selectedDate = date,
+            today = today,
+            timeZone = tz
+        )
+
+        requireNotNull(group)
+        assertEquals(0, group.entryCount)
+
+        val gaps = group.items.filterIsInstance<TimelineItem.UntrackedGap>()
+        assertEquals(1, gaps.size)
+        assertEquals(instant(date, LocalTime(0, 0)), gaps[0].startTime)
+        assertEquals(instant(today, LocalTime(0, 0)), gaps[0].endTime)
+    }
+
+    @Test
+    fun `empty today does not force full-day untracked gap`() = runTest {
+        val date = LocalDate(2026, 1, 1)
+        val today = date
+
+        val group = createTimelineDayGroup(
+            date = date,
+            entries = emptyList(),
+            selectedDate = date,
+            today = today,
+            timeZone = tz
+        )
+
+        org.junit.jupiter.api.Assertions.assertNull(group)
+    }
+
+    @Test
+    fun `past day with entries does not emit full-day untracked gap`() = runTest {
+        val date = LocalDate(2026, 1, 1)
+        val today = LocalDate(2026, 1, 2)
+        val entry = TestDataFactory.createTimeEntry(
+            id = 1,
+            startTime = instant(date, LocalTime(10, 0), second = 0),
+            endTime = instant(date, LocalTime(11, 0), second = 0),
+            durationMinutes = 60
+        )
+
+        val group = createTimelineDayGroup(
+            date = date,
+            entries = listOf(entry),
+            selectedDate = date,
+            today = today,
+            timeZone = tz
+        )
+
+        requireNotNull(group)
+        org.junit.jupiter.api.Assertions.assertTrue(group.items.any { it is TimelineItem.Entry })
+        org.junit.jupiter.api.Assertions.assertFalse(
+            group.items.filterIsInstance<TimelineItem.UntrackedGap>().any {
+                it.startTime == instant(date, LocalTime(0, 0)) && it.endTime == instant(today, LocalTime(0, 0))
+            }
+        )
+    }
 }

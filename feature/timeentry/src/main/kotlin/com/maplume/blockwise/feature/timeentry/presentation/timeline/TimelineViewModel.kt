@@ -20,7 +20,7 @@ import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.DayGroup
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.MergeTimeEntriesUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.SplitTimeEntryUseCase
 import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.TimelineItem
-import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createDayGroup
+import com.maplume.blockwise.feature.timeentry.domain.usecase.timeline.createTimelineDayGroup
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -240,6 +240,8 @@ class TimelineViewModel @Inject constructor(
 
     private fun updateDayGroups(weekStart: LocalDate = _uiState.value.weekStartDate) {
         val tz = TimeZone.currentSystemDefault()
+        val today = Clock.System.now().toLocalDateTime(tz).date
+        val selectedDate = _uiState.value.selectedDate
         val hidden = _uiState.value.hiddenEntryIds
         val visibleEntries = latestEntries.filterNot { it.id in hidden }
 
@@ -254,9 +256,13 @@ class TimelineViewModel @Inject constructor(
                     entry.startTime < dayEnd && entry.endTime > dayStart
                 }
 
-                dayEntries.takeIf { it.isNotEmpty() }?.let {
-                    createDayGroup(date = date, entries = it, timeZone = tz)
-                }
+                createTimelineDayGroup(
+                    date = date,
+                    entries = dayEntries,
+                    selectedDate = selectedDate,
+                    today = today,
+                    timeZone = tz
+                )
             }
             .sortedByDescending { it.date }
 
@@ -274,6 +280,9 @@ class TimelineViewModel @Inject constructor(
         _uiState.update { it.copy(selectedDate = date, showDatePicker = false) }
         if (currentWeekStart != newWeekStart) {
             loadEntries()
+        } else {
+            // Changing selectedDate affects whether we synthesize an empty-past-day DayGroup.
+            updateDayGroups(weekStart = newWeekStart)
         }
     }
 

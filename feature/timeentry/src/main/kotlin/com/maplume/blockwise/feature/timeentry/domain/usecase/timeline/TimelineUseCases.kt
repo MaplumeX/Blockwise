@@ -70,6 +70,28 @@ internal fun createDayGroup(
     )
 }
 
+internal fun createTimelineDayGroup(
+    date: LocalDate,
+    entries: List<TimeEntry>,
+    selectedDate: LocalDate,
+    today: LocalDate,
+    timeZone: TimeZone
+): DayGroup? {
+    if (entries.isNotEmpty()) {
+        return createDayGroup(date = date, entries = entries, timeZone = timeZone)
+    }
+
+    // Only show a full-day untracked gap for the selected day when it is strictly in the past.
+    if (date != selectedDate || date >= today) return null
+
+    val window = dayWindow(date, timeZone)
+    return DayGroup(
+        date = date,
+        items = listOf(TimelineItem.UntrackedGap(startTime = window.startTime, endTime = window.endTime)),
+        totalMinutes = 0
+    )
+}
+
 internal fun buildTimelineItemsForDay(
     date: LocalDate,
     sortedEntriesByStart: List<TimeEntry>,

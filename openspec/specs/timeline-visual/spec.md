@@ -64,6 +64,7 @@ The gap detection window for a given day group SHALL include:
 - Gaps between adjacent time entries within the same day group.
 - The gap from 00:00 to the first entry start time (when the first entry does not start at 00:00).
 - The gap from the last entry end time to 24:00 (when the last entry does not end at 24:00).
+- When the selected date D is strictly earlier than today (in system timezone) and there are zero TimeEntries that overlap `[D 00:00:00, D+1 00:00:00)`, the full-day gap from 00:00 to 24:00.
 
 #### Scenario: Insert untracked gap card between entries
 - **GIVEN** two adjacent time entries within the same day group
@@ -107,6 +108,15 @@ The gap detection window for a given day group SHALL include:
 - **WHEN** the Timeline list is rendered
 - **THEN** no end-of-day untracked gap card is shown
 
+#### Scenario: Empty past day shows full-day untracked gap card
+- **GIVEN** the selected date is day D
+- **AND** D is strictly earlier than today (in system timezone)
+- **AND** there are zero TimeEntries that overlap `[D 00:00:00, D+1 00:00:00)`
+- **WHEN** the Timeline list is rendered
+- **THEN** exactly one untracked gap card is shown
+- **AND** the card displays the time range 00:00–24:00
+- **AND** the Timeline list does not show an empty-state message for no time entries
+
 ### Requirement: Create Time Entry From Untracked Gap
 The system SHALL allow users to create a new time entry from an untracked gap card by navigating to the create time entry flow with the gap start and end times prefilled.
 
@@ -115,6 +125,12 @@ The system SHALL allow users to create a new time entry from an untracked gap ca
 - **WHEN** the user taps the untracked gap card
 - **THEN** the app navigates to the create time entry screen
 - **AND** the create screen pre-fills the gap start time and end time
+
+#### Scenario: Tap full-day gap card pre-fills day range
+- **GIVEN** an untracked gap card is rendered for day D as 00:00–24:00
+- **WHEN** the user taps the untracked gap card
+- **THEN** the create flow pre-fills start time as `D 00:00`
+- **AND** it pre-fills end time as `D+1 00:00`
 
 ### Requirement: Timeline Shows Running Timer Entry
 When a timer is running for the selected date (today), the Timeline list SHALL show a visible "running timer" entry to provide immediate feedback.
